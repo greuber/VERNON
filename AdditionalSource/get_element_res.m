@@ -27,12 +27,12 @@ for j =1:NUM.NUMERICS.no_intp
     B(3,1:2:end) = dNdX(2,:);
     B(3,2:2:end) = dNdX(1,:);
     
-    % [ NUM,MESH] = ComputeStress_residual(i,NUM,j,MESH,CHAR,PAR,B,p,u);
+    [ NUM,MESH] = ComputeStress_residual(i,NUM,j,MESH,CHAR,PAR,B,p,u);
     
     strain_tensor = [NUM.Strain.Exx(j,i);NUM.Strain.Ezz(j,i);NUM.Strain.Exz(j,i)*2];
     tau_local   =   [NUM.Stress.Txx(j,i);NUM.Stress.Tzz(j,i);NUM.Stress.Txz(j,i)];
     
-    res_P       =   N_p'*(m'*strain_tensor)* MESH.INTP.weight(j) * detJ;
+    res_P       =   (N_p'*(m'*strain_tensor))* (MESH.INTP.weight(j) * detJ);
     % f_quad_val  =   f_quad_val + (B'*(tau_local - m*N_p*p) - N_matrix'*MESH.CompVar.rho(NUM.Number.number_quad(j,i))' * PAR.g * (MESH.INTP.weight(j) * detJ));
     f_quad_val  =   f_quad_val + ((B'*(tau_local - m*N_p*p) - N_matrix'*MESH.CompVar.rho(NUM.Number.number_quad(j,i))' * PAR.g) * (MESH.INTP.weight(j) * detJ));
     f_line_val  =   f_line_val - res_P;

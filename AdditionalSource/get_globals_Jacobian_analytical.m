@@ -99,7 +99,7 @@ NUM.Solve.J(NUM.NUMERICS.no_nodes*(NUM.NUMERICS.ndof-1)+1:end,NUM.NUMERICS.no_no
 % Add boundaries to the system
 for i = 1:1:length(NUM.Boundary.bcdof)
     NUM.Solve.J(NUM.Boundary.bcdof(i),:) = 0;
-    % NUM.Solve.J(:,NUM.Boundary.bcdof(i)) = 0;
+    NUM.Solve.J(:,NUM.Boundary.bcdof(i)) = 0;
     NUM.Solve.J(NUM.Boundary.bcdof(i),NUM.Boundary.bcdof(i)) = 1; 
 end
 

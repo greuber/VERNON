@@ -75,12 +75,12 @@ NUM.Strain.Exz(j,i) = NUM.Strain.str_local(3);
 %% Nonlinear + elastic part of viscosity
 
 %%%%%%%%%%%%%%%%%% NEEDS TO BE TURNED ON %%%%%%%%%%%%
-% NUM.Viscosity.mu = MESH.CompVar.mu_ref(NUM.Number.number_quad(j,i))*(NUM.Strain.str_invariant./MESH.CompVar.str_ref(NUM.Number.number_quad(j,i))).^(1./MESH.CompVar.powerlaw(NUM.Number.number_quad(j,i))-1);
-% NUM.Viscosity.mu = 1./(1./NUM.Viscosity.mu + 1./(MESH.CompVar.G(NUM.Number.number_quad(j,i))*PAR.dt)); 
+NUM.Viscosity.mu = MESH.CompVar.mu_ref(NUM.Number.number_quad(j,i))*(NUM.Strain.str_invariant./MESH.CompVar.str_ref(NUM.Number.number_quad(j,i))).^(1./MESH.CompVar.powerlaw(NUM.Number.number_quad(j,i))-1);
+NUM.Viscosity.mu = 1./(1./NUM.Viscosity.mu + 1./(MESH.CompVar.G(NUM.Number.number_quad(j,i))*PAR.dt)); 
 %%%%%%%%%%%%%%%%%% NEEDS TO BE TURNED ON %%%%%%%%%%%%
 
 % For the visco-elastic case uncomment this
-NUM.Viscosity.mu = MESH.CompVar.G(NUM.Number.number_quad(j,i)) *PAR.dt;          
+% NUM.Viscosity.mu = MESH.CompVar.G(NUM.Number.number_quad(j,i)) *PAR.dt;          
 
 mu_vis = NUM.Viscosity.mu;
 

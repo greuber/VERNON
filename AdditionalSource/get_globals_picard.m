@@ -54,7 +54,7 @@ for i = 1:NUM.NUMERICS.no_elems_global
         D               = 2*NUM.Viscosity.mu*(P*P');
         KM              = KM + B'*D*B * MESH.INTP.weight(j)*detJ;
         GM              = GM - (B'*m*N_p* MESH.INTP.weight(j)*detJ);
-        F(1:end-NUM.NUMERICS.no_nodes_ele_linear,1)    = F(1:end-NUM.NUMERICS.no_nodes_ele_linear,1) + N_matrix'*MESH.CompVar.rho(NUM.Number.number_quad(j,i))' * PAR.g * MESH.INTP.weight(j) * detJ;
+        F(1:1:end-NUM.NUMERICS.no_nodes_ele_linear,1)    = F(1:1:end-NUM.NUMERICS.no_nodes_ele_linear,1) + ((N_matrix'*MESH.CompVar.rho(NUM.Number.number_quad(j,i))' * PAR.g) * (MESH.INTP.weight(j) * detJ));
 
     end
     

@@ -12,11 +12,6 @@ number_new           = 1;
 atol = 1e-10;
 tol_picard = 1e-2;   % when to switch to Newton iterations
 
-% % if we make Newton we should zero the solution vector
-% % if strcmp(NUM.Solve.Solver_method,'Newton') == 1
-%     NUM.Solve.r                 = zeros(NUM.NUMERICS.no_nodes*(NUM.NUMERICS.ndof-1)+NUM.NUMERICS.no_nodes_linear,1);
-% % end
-
 % apply bounds on the solution vector
 for i = 1:1:length(NUM.Boundary.bcdof)
     NUM.Solve.r(NUM.Boundary.bcdof(i)) = NUM.Boundary.bcval(i);
@@ -76,22 +71,14 @@ while NUM.Solve.number_pic<=max_iter
             
             switch NUM.Solve.Jacobian
                 case 'analytical'
-%                     if number_new == 1
-                    % in the first iteration the residual must be
-                    % computed with the picard matrix!
                     NUM.time_solver_iter = cputime;
 
                     [ NUM,MESH ]     = get_globals_picard( NUM,PAR,MESH,CHAR);
 %                     NUM.Solve.f_res  = NUM.Solve.L*NUM.Solve.r - NUM.Solve.FG;
-                    % [ NUM,MESH ]     = get_globals_Jacobian_analytical( NUM,PAR,MESH ,CHAR);
+%                     [ NUM,MESH ]     = get_globals_Jacobian_analytical( NUM,PAR,MESH ,CHAR);
                     [ NUM,MESH ]     = Compute_elemental_residual( NUM,MESH,PAR,CHAR );
 
-                    dr               = -NUM.Solve.L\NUM.Solve.f_res;                              %%% CHANGED PICARD
-%                     else
-%                     [ NUM ]          = Compute_elemental_residual( NUM,MESH,PAR,CHAR );
-%                     [ NUM,MESH ]     = get_globals_Jacobian_analytical( NUM,PAR,MESH ,CHAR);
-%                     dr               = NUM.Solve.J\(-NUM.Solve.f_res);
-%                     end
+                    dr               = NUM.Solve.L\(-NUM.Solve.f_res);                              %%% CHANGED PICARD
                     
                     switch NUM.Solve.Linesearch
                         case 'Bisection'
@@ -99,7 +86,7 @@ while NUM.Solve.number_pic<=max_iter
                             alpha = 1;
                             r_0   = NUM.Solve.r;
                             
-                            while norm(N_f_res_old) < norm(NUM.Solve.f_res) && LS <= 10 && LS>1
+                            while norm(N_f_res_old) < norm(NUM.Solve.f_res) && LS <= 10 && NUM.Solve.number_pic>1
                                 alpha           = alpha/2;
                                 NUM.Solve.r     = r_0 + alpha * dr;
                                 [ NUM ]          = Compute_elemental_residual( NUM,MESH,PAR,CHAR );
@@ -463,6 +450,9 @@ while NUM.Solve.number_pic<=max_iter
                     NUM.time_solver_iter = cputime;
                     vec = zeros((NUM.NUMERICS.no_nodes_ele*(NUM.NUMERICS.ndof-1)+NUM.NUMERICS.no_nodes_ele_linear)^2,NUM.NUMERICS.no_elems_global);
                     NUM.Solve.f_res = zeros(NUM.NUMERICS.no_nodes*(NUM.NUMERICS.ndof-1)+NUM.NUMERICS.no_nodes_linear,1);
+                    if NUM.Plasticity.Plasticity
+                        NUM.Plasticity.Plastic = zeros(NUM.NUMERICS.no_intp,NUM.NUMERICS.no_elems_global)   ;
+                    end
                     for i = 1:NUM.NUMERICS.no_elems_global
                         f_quad_val = zeros(NUM.NUMERICS.no_nodes_ele*2,1);
                         f_line_val = zeros(NUM.NUMERICS.no_nodes_ele_linear,1);

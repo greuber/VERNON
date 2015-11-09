@@ -3,9 +3,9 @@ function [ NUM,MESH ] = Compute_elemental_residual( NUM,MESH,PAR,CHAR )
 
 NUM.Solve.f_res = zeros(NUM.NUMERICS.no_nodes*(NUM.NUMERICS.ndof-1)+NUM.NUMERICS.no_nodes_linear,1);
 % Some ifs
-% if NUM.Plasticity.Plasticity
-%     NUM.Plasticity.Plastic = zeros(NUM.NUMERICS.no_intp,NUM.NUMERICS.no_elems_global)   ;
-% end
+if NUM.Plasticity.Plasticity
+    NUM.Plasticity.Plastic = zeros(NUM.NUMERICS.no_intp,NUM.NUMERICS.no_elems_global)   ;
+end
 
 % % This would be the old school way to do it
 % [ NUM,MESH ]     = get_globals_picard( NUM,PAR,MESH,CHAR);
