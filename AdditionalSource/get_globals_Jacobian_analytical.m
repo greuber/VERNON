@@ -2,7 +2,7 @@ function [ NUM,MESH ] = get_globals_Jacobian_analytical( NUM,PAR,MESH ,CHAR)
 
 %% initilize globals
 vec = zeros((NUM.NUMERICS.no_nodes_ele*(NUM.NUMERICS.ndof-1)+NUM.NUMERICS.no_nodes_ele_linear)^2,NUM.NUMERICS.no_elems_global);
-NUM.Solve.J = zeros(NUM.NUMERICS.no_nodes_ele*(NUM.NUMERICS.ndof-1)+NUM.NUMERICS.no_nodes_ele_linear,NUM.NUMERICS.no_nodes_ele*(NUM.NUMERICS.ndof-1)+NUM.NUMERICS.no_nodes_ele_linear);
+NUM.Solve.J = zeros(NUM.NUMERICS.no_nodes*(NUM.NUMERICS.ndof-1)+NUM.NUMERICS.no_nodes_linear,NUM.NUMERICS.no_nodes*(NUM.NUMERICS.ndof-1)+NUM.NUMERICS.no_nodes_ele_linear);
 
 % Some ifs
 if NUM.Plasticity.Plasticity
@@ -50,8 +50,8 @@ for i = 1:NUM.NUMERICS.no_elems_global
             sin_phi     = sin(deg2rad(MESH.CompVar.Phi(NUM.Number.number_quad(j,i))));
         end
         
-        strain_tensor = [NUM.Strain.Exx(j,i);NUM.Strain.Ezz(j,i);NUM.Strain.Exz(j,i)*2];
-        strain_tensor    = P' * strain_tensor;
+        strain_tensor = [NUM.Strain.Exx(j,i);NUM.Strain.Ezz(j,i);NUM.Strain.Exz(j,i)];
+        strain_tensor = P' * strain_tensor;
 
         if NUM.Plasticity.Plasticity && NUM.Plasticity.Plastic(j,i) == 1 
             nu              =   strain_tensor./NUM.Strain.str_invariant_2d(j,i);
@@ -70,9 +70,7 @@ for i = 1:NUM.NUMERICS.no_elems_global
         temp     =   B'*D*B*(MESH.INTP.weight(j) * detJ);
         KM       =   KM + temp;
         temp_P   =   B'*m*N_p * (MESH.INTP.weight(j) * detJ);
-        GM       =   GM - temp_P;
-        
-        
+        GM       =   GM - temp_P;  
     end
     
     LM(1:NUM.NUMERICS.no_nodes_ele*2,1:NUM.NUMERICS.no_nodes_ele*2)  = KM;
@@ -80,6 +78,8 @@ for i = 1:NUM.NUMERICS.no_elems_global
     LM(NUM.NUMERICS.no_nodes_ele*2+1:NUM.NUMERICS.no_nodes_ele*2+NUM.NUMERICS.no_nodes_ele_linear,1:NUM.NUMERICS.no_nodes_ele*2) = GM';
     
     vec(:,i) = LM(:);
+    
+    % NUM.Solve.J(NUM.Number.number_ele_dof(:,i),NUM.Number.number_ele_dof(:,i)) = NUM.Solve.J(NUM.Number.number_ele_dof(:,i),NUM.Number.number_ele_dof(:,i)) + LM;
     
 end
 

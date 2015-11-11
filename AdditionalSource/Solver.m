@@ -1,16 +1,16 @@
 function [ NUM,MESH] = Solver(NUM,PAR,MESH,CHAR )
 
 NUM.Solve.number_pic = 1;
-max_iter             = 10;
+max_iter             = 20;
 N_f_res_old          = realmax;
 LS                   = 1;
-no_picard            = 3;
+no_picard            = 1;
 NUM.Solve.Solver     = NUM.Solve.Solver_method;
 res_ini              = 1;
 number_new           = 1;
 
 atol = 1e-10;
-tol_picard = 1e-2;   % when to switch to Newton iterations
+tol_picard = 5e-1;   % when to switch to Newton iterations
 
 % apply bounds on the solution vector
 for i = 1:1:length(NUM.Boundary.bcdof)
@@ -28,12 +28,12 @@ while NUM.Solve.number_pic<=max_iter
     if strcmp(NUM.Solve.Solver_method,'NewtonPicard') == 1
         if NUM.Solve.number_pic <= no_picard
             NUM.Solve.Solver = 'Picard';
-        elseif norm(NUM.Solve.f_res) < tol_picard
+        elseif norm(NUM.Solve.f_res)/(res_ini) < tol_picard
             NUM.Solve.Solver        = 'Newton';
             number_new    = 1;
         else
-            NUM.Solve.Solver = 'Newton';
-            number_new    = 1;
+            NUM.Solve.Solver = 'Picard';
+            % number_new    = 1;
         end
     end
     
@@ -48,11 +48,22 @@ while NUM.Solve.number_pic<=max_iter
             end
             
             NUM.time_solver_iter = cputime;
-            [ NUM,MESH ]    = get_globals_picard( NUM,PAR,MESH,CHAR);
-            NUM.Solve.f_res = NUM.Solve.L*NUM.Solve.r - NUM.Solve.FG;
-            NUM.Solve.r     = NUM.Solve.L\NUM.Solve.FG;
-            NUM.time_solver_iter = cputime - NUM.time_solver_iter;
             
+% %           Oldschool Picard
+%             [ NUM,MESH ]    = get_globals_picard( NUM,PAR,MESH,CHAR);
+%             NUM.Solve.f_res = NUM.Solve.L*NUM.Solve.r - NUM.Solve.FG;
+% %             [ NUM,MESH ]     = Compute_elemental_residual( NUM,MESH,PAR,CHAR );
+%             NUM.Solve.r     = NUM.Solve.L\NUM.Solve.FG;
+%             NUM.time_solver_iter = cputime - NUM.time_solver_iter;
+
+                    [ NUM,MESH ]    = get_globals_picard( NUM,PAR,MESH,CHAR);
+                    [ NUM,MESH ]     = Compute_elemental_residual( NUM,MESH,PAR,CHAR );
+                    dr               = NUM.Solve.L\(-NUM.Solve.f_res);  
+                    
+                    alpha = 1;
+                    r_0 = NUM.Solve.r;
+                    
+             NUM.Solve.r      = r_0 + alpha * dr;
 
             if strcmp(NUM.Timestep.method,'EulerImplicit') == 1
                 MESH.GCOORD(1,:) = MESH.Old(1,:) + NUM.Solve.r(NUM.Number.number_dof(1,1:NUM.NUMERICS.no_nodes))' * PAR.dt;
@@ -72,13 +83,10 @@ while NUM.Solve.number_pic<=max_iter
             switch NUM.Solve.Jacobian
                 case 'analytical'
                     NUM.time_solver_iter = cputime;
-
-                    [ NUM,MESH ]     = get_globals_picard( NUM,PAR,MESH,CHAR);
-%                     NUM.Solve.f_res  = NUM.Solve.L*NUM.Solve.r - NUM.Solve.FG;
-%                     [ NUM,MESH ]     = get_globals_Jacobian_analytical( NUM,PAR,MESH ,CHAR);
+                    [ NUM,MESH ]     = get_globals_Jacobian_analytical( NUM,PAR,MESH ,CHAR);
+                    % [ NUM,MESH ]    = get_globals_picard( NUM,PAR,MESH,CHAR);
                     [ NUM,MESH ]     = Compute_elemental_residual( NUM,MESH,PAR,CHAR );
-
-                    dr               = NUM.Solve.L\(-NUM.Solve.f_res);                              %%% CHANGED PICARD
+                    dr               = NUM.Solve.J\(-NUM.Solve.f_res);                    
                     
                     switch NUM.Solve.Linesearch
                         case 'Bisection'
@@ -191,7 +199,7 @@ while NUM.Solve.number_pic<=max_iter
                             NUM.Adjoint.adjoint_tol = norm(grad)*1e-3;   % to end when the error is 3 orders smaller than the in iitla one
                             
                             % save step-size
-                            beta_step = (1./abs(grad'));   
+                            beta_step = (1./abs(grad)');   
                             
                             % Compute first search-direction
                             dx = -H*grad';
@@ -419,7 +427,7 @@ while NUM.Solve.number_pic<=max_iter
                         %                         print(fname,'-dpng','-zbuffer','-r300')
                         
                         % MESH.CompVar.powerlaw
-                        MESH.CompVar.rho*CHAR.rho
+                        % MESH.CompVar.rho*CHAR.rho
                         
                         %                                                                         rho_sur_temp = mean(MESH.CompVar.rho(unique((NUM.Adjoint.index{3}))));
                         %                                                                         power_sur_temp = mean(MESH.CompVar.powerlaw(unique((NUM.Adjoint.index{1}))));
@@ -437,8 +445,6 @@ while NUM.Solve.number_pic<=max_iter
                         NUM.Adjoint.it_adj = NUM.Adjoint.it_adj + 1;
                         fcost_old = fcost;
                         dcost_du_old = dcost_du;
-                        
-                        % [ NUM ] = Update_StressesAndStrains(NUM,PAR,MESH );
                         
                     end
                     
@@ -570,6 +576,8 @@ for par = 1:npar
         m(par,1) = m(par,1);
     elseif strcmp(NUM.Adjoint.fields{par},'str_ref') == 1
         m(par,1) = m(par,1)/(1/CHAR.Time);
+    elseif strcmp(NUM.Adjoint.fields{par},'mu_ref') == 1 || strcmp(NUM.Adjoint.fields{par},'mu') == 1
+        m(par,1) = m(par,1)/CHAR.Viscosity;
     elseif isfield(CHAR,NUM.Adjoint.fields{par}) == 1
         m(par,1) = m(par,1)/CHAR.(NUM.Adjoint.fields{par});
     end
@@ -582,6 +590,8 @@ for par = 1:npar
         m(par,1) = m(par,1);
     elseif strcmp(NUM.Adjoint.fields{par},'str_ref') == 1
         m(par,1) = m(par,1)*(1/CHAR.Time);
+    elseif strcmp(NUM.Adjoint.fields{par},'mu_ref') == 1 || strcmp(NUM.Adjoint.fields{par},'mu') == 1
+        m(par,1) = m(par,1)*CHAR.Viscosity;
     elseif isfield(CHAR,NUM.Adjoint.fields{par}) == 1
         m(par,1) = m(par,1)*(CHAR.(NUM.Adjoint.fields{par}));
     end

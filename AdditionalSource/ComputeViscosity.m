@@ -75,17 +75,17 @@ NUM.Strain.Exz(j,i) = NUM.Strain.str_local(3);
 %% Nonlinear + elastic part of viscosity
 
 %%%%%%%%%%%%%%%%%% NEEDS TO BE TURNED ON %%%%%%%%%%%%
-% NUM.Viscosity.mu = MESH.CompVar.mu_ref(NUM.Number.number_quad(j,i))*(NUM.Strain.str_invariant./MESH.CompVar.str_ref(NUM.Number.number_quad(j,i))).^(1./MESH.CompVar.powerlaw(NUM.Number.number_quad(j,i))-1);
-% NUM.Viscosity.mu = 1./(1./NUM.Viscosity.mu + 1./(MESH.CompVar.G(NUM.Number.number_quad(j,i))*PAR.dt)); 
+NUM.Viscosity.mu = MESH.CompVar.mu_ref(NUM.Number.number_quad(j,i))*(NUM.Strain.str_invariant./MESH.CompVar.str_ref(NUM.Number.number_quad(j,i))).^(1./MESH.CompVar.powerlaw(NUM.Number.number_quad(j,i))-1);
+NUM.Viscosity.mu = 1./(1./NUM.Viscosity.mu + 1./(MESH.CompVar.G(NUM.Number.number_quad(j,i))*PAR.dt)); 
 %%%%%%%%%%%%%%%%%% NEEDS TO BE TURNED ON %%%%%%%%%%%%
 
 % For the visco-elastic case uncomment this
-NUM.Viscosity.mu = MESH.CompVar.G(NUM.Number.number_quad(j,i)) *PAR.dt;          
+% NUM.Viscosity.mu = MESH.CompVar.G(NUM.Number.number_quad(j,i)) *PAR.dt;          
 
 mu_vis = NUM.Viscosity.mu;
 
 %% Plastic
-if NUM.Plasticity.Plasticity
+if NUM.Plasticity.Plasticity %  &&  ismember(NUM.Number.number_quad(j,i),NUM.Number.number_2d(end,1)) == 0
     
     if NUM.Solve.number_pic == 1 && NUM.time == 0   % in the first iteration in the first timestep pressure is set to 1
         p = ones(size(NUM.Solve.r(NUM.Number.number_ele_dof(NUM.NUMERICS.no_nodes_ele*2+1:NUM.NUMERICS.no_nodes_ele*2+NUM.NUMERICS.no_nodes_ele_linear,i),1)));
