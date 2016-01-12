@@ -89,12 +89,11 @@ switch PAR.Perturb
         
         
     case 'random'
-        % make random disribution for the middle of the model
-        bounding = NUM.NUMERICS.dz/2;
-        ind = find(MESH.GCOORD(2,:)<4e3+bounding & MESH.GCOORD(2,:)>4e3-bounding);
-        MESH.GCOORD(2,ind) = MESH.GCOORD(2,ind) + NUM.NUMERICS.dz*2*[rand(size(MESH.GCOORD(2,ind)))];
-        ind = find(MESH.GCOORD(2,:)<6e3+bounding & MESH.GCOORD(2,:)>6e3-bounding);
-        MESH.GCOORD(2,ind) = MESH.GCOORD(2,ind) + NUM.NUMERICS.dz*2*[rand(size(MESH.GCOORD(2,ind)))];
+        % make random disribution for the interface parameter
+        % PAR.H_interface
+        bound = NUM.NUMERICS.dz - NUM.NUMERICS.dz/2;
+        ind = find(MESH.GCOORD(2,:)<PAR.H_interface+bound & MESH.GCOORD(2,:)>PAR.H_interface-bound);
+        MESH.GCOORD(2,ind) = MESH.GCOORD(2,ind) + bound*[rand(size(MESH.GCOORD(2,ind)))];
         
     case 'none'
 end

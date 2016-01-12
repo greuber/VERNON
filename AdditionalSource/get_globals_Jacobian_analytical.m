@@ -114,15 +114,15 @@ NUM.Solve.J = sparse(Ai,Aj,vec);
 
 clear Ai Aj vec
 
-% Set penalty on the Jacobian 
+% Set penalty on the Jacobian
 NUM.Solve.J(NUM.NUMERICS.no_nodes*(NUM.NUMERICS.ndof-1)+1:end,NUM.NUMERICS.no_nodes*(NUM.NUMERICS.ndof-1)+1:end) =  NUM.Solve.J(NUM.NUMERICS.no_nodes*(NUM.NUMERICS.ndof-1)+1:end,NUM.NUMERICS.no_nodes*(NUM.NUMERICS.ndof-1)+1:end)  +  ((-1/(1e10*100)).*speye(NUM.NUMERICS.no_nodes_linear,NUM.NUMERICS.no_nodes_linear));
 
 
 % Add boundaries to the system
+NUM.Solve.J(NUM.Boundary.bcdof,:) = 0;
+NUM.Solve.J(:,NUM.Boundary.bcdof) = 0;
 for i = 1:1:length(NUM.Boundary.bcdof)
-    NUM.Solve.J(NUM.Boundary.bcdof(i),:) = 0;
-    NUM.Solve.J(:,NUM.Boundary.bcdof(i)) = 0;
-    NUM.Solve.J(NUM.Boundary.bcdof(i),NUM.Boundary.bcdof(i)) = 1; 
+    NUM.Solve.J(NUM.Boundary.bcdof(i),NUM.Boundary.bcdof(i)) = 1;
 end
 
 

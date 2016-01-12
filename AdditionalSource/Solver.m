@@ -23,9 +23,7 @@ atol = 1e-15;
 tol_picard = 5e-1;   % when to switch to Newton iterations
 
 % apply bounds on the solution vector
-for i = 1:1:length(NUM.Boundary.bcdof)
-    NUM.Solve.r(NUM.Boundary.bcdof(i)) = NUM.Boundary.bcval(i);
-end
+NUM.Solve.r(NUM.Boundary.bcdof) = NUM.Boundary.bcval;
 
 if isfield(NUM,'Convergence_normalized')
     NUM  = rmfield(NUM,'Convergence_normalized');
