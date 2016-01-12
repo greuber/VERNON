@@ -1,5 +1,17 @@
 function [ NUM,MESH ] = get_globals_picard( NUM,PAR,MESH,CHAR)
-% Evaluates the Picard matrix and the right-hand-side vector
+%% -------------- %% Picard matrix assembly function %% -------------- %%
+% Assembles the global Picard matrix the usual way:
+%                 --------
+%                 |VV  VP|
+% Picard matrix = |PV  PP|
+%                 --------
+% 
+% VV  = B'*(2*mu*(P*P'))*B*weight*detJ
+% VP  = -B'*m*N_p*weight*detJ
+% PV  = VP
+% PP  = 0
+% RHS = N*rho'*g*weight*detJ
+%%---------------------------------------------------------------------%%
 
 NUM.Solve.FG = zeros(NUM.NUMERICS.no_nodes*(NUM.NUMERICS.ndof-1)+NUM.NUMERICS.no_nodes_linear,1);
 vec = zeros((NUM.NUMERICS.no_nodes_ele*(NUM.NUMERICS.ndof-1)+NUM.NUMERICS.no_nodes_ele_linear)^2,NUM.NUMERICS.no_elems_global);
@@ -49,12 +61,12 @@ for i = 1:NUM.NUMERICS.no_elems_global
         B(3,1:2:end) = dNdX(2,:);
         B(3,2:2:end) = dNdX(1,:);
         
-        [ NUM,MESH] = ComputeViscosity(i,NUM,j,MESH,CHAR,PAR,B);
+        [ NUM,MESH] = Compute_Viscosity(i,NUM,j,MESH,CHAR,PAR,B);
         
         D               = 2*NUM.Viscosity.mu*(P*P');
         KM              = KM + B'*D*B * MESH.INTP.weight(j)*detJ;
         GM              = GM - (B'*m*N_p* MESH.INTP.weight(j)*detJ);
-        F(1:1:end-NUM.NUMERICS.no_nodes_ele_linear,1)    = F(1:1:end-NUM.NUMERICS.no_nodes_ele_linear,1) + ((N_matrix'*MESH.CompVar.rho(NUM.Number.number_quad(j,i))' * PAR.g) * (MESH.INTP.weight(j) * detJ));
+        F(1:1:end-NUM.NUMERICS.no_nodes_ele_linear,1)    = F(1:1:end-NUM.NUMERICS.no_nodes_ele_linear,1) + ((N_matrix'*MESH.CompVar.rho(NUM.Number.number_quad(j,i))' * [0;PAR.g]) * (MESH.INTP.weight(j) * detJ));
 
     end
     

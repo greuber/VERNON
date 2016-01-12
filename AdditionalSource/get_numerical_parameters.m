@@ -1,4 +1,4 @@
-function [ NUM ] = Get_NumericalParameters( NUM,PAR )
+function [ NUM ] = get_numerical_parameters( NUM,PAR )
 % Computes the numerical parameters
 NUM.NUMERICS.no_elems_global = NUM.NUMERICS.no_elems_x*NUM.NUMERICS.no_elems_z;
 

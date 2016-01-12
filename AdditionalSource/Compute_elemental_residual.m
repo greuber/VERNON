@@ -1,5 +1,7 @@
 function [ NUM,MESH ] = Compute_elemental_residual( NUM,MESH,PAR,CHAR )
-% This function computes the residual element wise
+%% -------------- %% Residual computation function %% -------------- %%
+% Computes the residual per element
+%%-------------------------------------------------------------------%% 
 
 NUM.Solve.f_res = zeros(NUM.NUMERICS.no_nodes*(NUM.NUMERICS.ndof-1)+NUM.NUMERICS.no_nodes_linear,1);
 % Some ifs

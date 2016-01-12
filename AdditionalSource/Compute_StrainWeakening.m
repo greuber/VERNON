@@ -1,5 +1,7 @@
 function [ MESH ] = Compute_StrainWeakening( NUM,i,j,MESH )
-% adds strain weakening on the full strainrate 
+%% -------------- %% Strain weakening function %% -------------- %%
+% Applys LINEAR strain weakening
+%%---------------------------------------------------------------%% 
 
 C_end   = MESH.CompVar.C_end(NUM.Number.number_quad(j,i));
 phi_end = MESH.CompVar.phi_end(NUM.Number.number_quad(j,i));

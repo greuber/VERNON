@@ -1,4 +1,7 @@
 function [ NUM ] = get_numberings(NUM)
+%% -------------- %% Numbering function %% -------------- %%
+% Builds the finite element numberings for Q2P1 and Q1P0 element
+%%--------------------------------------------------------%% 
 
 
 if NUM.NUMERICS.Dimension == 2

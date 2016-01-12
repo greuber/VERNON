@@ -1,12 +1,21 @@
-function [ NUM,CHAR,PAR,MESH,varargout] = NonDimensional( NUM,CHAR,PAR,MESH ,varargin)
+function [ NUM,CHAR,PAR,MESH,varargout] = Non_dimensionalize( NUM,CHAR,PAR,MESH ,varargin)
+%% -------------- %% Nondimensionalization function %% -------------- %%
+% Nondimensionalization for every parameter
+%%--------------------------------------------------------------------%% 
 
 if size(varargin)>=1
     PARTICLES = varargin{1};
 end
 
-CHAR.Length         =       100e3;
-CHAR.Viscosity      =       1e20;
-CHAR.Time           =       1/1e-15;
+if ~isfield(CHAR,'Length')
+    CHAR.Length         =       100e3;
+end
+if ~isfield(CHAR,'Viscosity')
+    CHAR.Viscosity      =       1e20;
+end
+if ~isfield(CHAR,'Time')
+    CHAR.Time           =       1/1e-15;
+end
 
 % Derived characteristic values
 CHAR.Velocity           =       CHAR.Length/CHAR.Time;

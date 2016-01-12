@@ -1,4 +1,4 @@
-function [ weight,COORD ] = INT_PROPS(no_intp)
+function [ weight,COORD ] = get_integration_points(no_intp)
 
 if no_intp == 1;
     COORD(1,:) = [0];

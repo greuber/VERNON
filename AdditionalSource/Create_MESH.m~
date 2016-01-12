@@ -78,7 +78,7 @@ switch PAR.Perturb
         
         
     case 'middleinterface'
-        % make sinus only at a specified interface in PAR.H_interface
+        % make sinus only at a specified interface in PAR.H_interfac
         bound = NUM.NUMERICS.dz - NUM.NUMERICS.dz/10;
         st              = PAR.A0/sin(pi/2);
         k_topo          = linspace((0),(pi),NUM.NUMERICS.no_nodes_x);

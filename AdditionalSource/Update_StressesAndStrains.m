@@ -23,32 +23,35 @@ for i = 1:NUM.NUMERICS.no_elems_global     % Compute rotation angle from vortici
     
     for j =1:NUM.NUMERICS.no_intp
         
-        v_local = NUM.Solve.r(NUM.Number.number_ele_dof(1:NUM.NUMERICS.no_nodes_ele*2,i));
-        vx_local = v_local(1:2:end);
-        vz_local = v_local(2:2:end);
+        % Seems that inisde the stress rotation there is a bug (like a
+        % small factor too much
         
-        dNds = NUM.Shape.dNI_vector{j};
-        Jac  = dNds*LGCOORD;
-        invJ = inv(Jac);
-        dNdX = invJ*dNds;
-        
-        RotationAngle = 0;
-        RotationAngle = RotationAngle -  0.5*(dNdX(2,j) .* vx_local(j,1)' - dNdX(1,j) .* vz_local(j,1)')  *PAR.dt;
-        Psi           = RotationAngle;
-        
-        
-        Txx_rot         =   NUM.Stress.Txx_old(j,i).*cos(Psi).^2 + NUM.Stress.Tzz_old(j,i).*sin(Psi).^2 - NUM.Stress.Txz_old(j,i).*sin(2*Psi);
-        Tzz_rot         =   NUM.Stress.Txx_old(j,i).*sin(Psi).^2 + NUM.Stress.Tzz_old(j,i).*cos(Psi).^2 + NUM.Stress.Txz_old(j,i).*sin(2*Psi);
-        Txz_rot         =   (NUM.Stress.Txx_old(j,i)-NUM.Stress.Tzz_old(j,i))/2.*sin(2*Psi)+ NUM.Stress.Txz_old(j,i).*(2*cos(Psi).^2 -1);
-        NUM.Stress.Txx_old(j,i)         =   Txx_rot;
-        NUM.Stress.Tzz_old(j,i)         =   Tzz_rot;
-        NUM.Stress.Txz_old(j,i)         =   Txz_rot;
-        
-        NUM.Stress.T2nd_old(j,i) = sqrt(NUM.Stress.Txx_old(j,i)^2+NUM.Stress.Tzz_old(j,i)^2+(2*NUM.Stress.Txz_old(j,i))^2);
+%         v_local = NUM.Solve.r(NUM.Number.number_ele_dof(1:NUM.NUMERICS.no_nodes_ele*2,i));
+%         vx_local = v_local(1:2:end);
+%         vz_local = v_local(2:2:end);
+%         
+%         dNds = NUM.Shape.dNI_vector{j};
+%         Jac  = dNds*LGCOORD;
+%         invJ = inv(Jac);
+%         dNdX = invJ*dNds;
+%         
+%         RotationAngle = 0;
+%         RotationAngle = RotationAngle -  0.5*(dNdX(2,j) .* vx_local(j,1)' - dNdX(1,j) .* vz_local(j,1)')  *PAR.dt;
+%         Psi           = RotationAngle;
+%         
+%         
+%         Txx_rot         =   NUM.Stress.Txx_old(j,i).*cos(Psi).^2 + NUM.Stress.Tzz_old(j,i).*sin(Psi).^2 - NUM.Stress.Txz_old(j,i).*sin(2*Psi);
+%         Tzz_rot         =   NUM.Stress.Txx_old(j,i).*sin(Psi).^2 + NUM.Stress.Tzz_old(j,i).*cos(Psi).^2 + NUM.Stress.Txz_old(j,i).*sin(2*Psi);
+%         Txz_rot         =   (NUM.Stress.Txx_old(j,i)-NUM.Stress.Tzz_old(j,i))/2.*sin(2*Psi)+ NUM.Stress.Txz_old(j,i).*(2*cos(Psi).^2 -1);
+%         NUM.Stress.Txx_old(j,i)         =   Txx_rot;
+%         NUM.Stress.Tzz_old(j,i)         =   Tzz_rot;
+%         NUM.Stress.Txz_old(j,i)         =   Txz_rot;
+%         
+%         NUM.Stress.T2nd_old(j,i) = sqrt(NUM.Stress.Txx_old(j,i)^2+NUM.Stress.Tzz_old(j,i)^2+(2*NUM.Stress.Txz_old(j,i))^2);
         
         if NUM.Plasticity.Plasticity
-            % Compute plastic strain      
-              NUM.Strain.E_pl_2nd(j,i) = (1-(NUM.Viscosity.mu_pl_2d(j,i)/NUM.Viscosity.mu_vis_2d(j,i))) * NUM.Strain.str_invariant_2d(j,i);
+            % Compute plastic strain       % Computed by dividing the total viscosity over the viscous one  
+              NUM.Strain.E_pl_2nd(j,i) = (1-(NUM.Viscosity.mu_2d(j,i)/NUM.Viscosity.mu_vis_2d(j,i))) * NUM.Strain.str_invariant_2d(j,i);   % used to be pl/vis
               if NUM.Strain.E_pl_2nd(j,i) < 0
                   NUM.Strain.E_pl_2nd(j,i) = 0;
               end

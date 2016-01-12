@@ -1,5 +1,14 @@
 function [ NUM,MESH] = ComputeStress_residual(i,NUM,j,MESH,CHAR,PAR,B,p,u)
-% Computes viscosity
+%% --------------- %% Viscosity update function %% --------------- %%
+% Computes the (elasto-plastic) viscosity and stresses on the basis of the 
+% current solution.
+% Effective viscosity = min(plastic viscosity, elastic viscosity)
+% while,
+% plastic viscosity = Tau_yield/(2*Second_inv_strainrate)
+% elastic viscosity = Elastic shear modulus * dt
+% 
+% Stresses are computed by: Tau_ij = 2 * viscosity * strainrate_ij
+%%-----------------------------------------------------------------%%
 
 LowerCutoff = NUM.Viscosity.LowerCutoff;
 UpperCutoff = NUM.Viscosity.UpperCutoff;
@@ -74,18 +83,30 @@ NUM.Strain.Exz(j,i) = NUM.Strain.str_local(3);
 
 %% Nonlinear + elastic part of viscosity
 
-%%%%%%%%%%%%%%%%%% NEEDS TO BE TURNED ON %%%%%%%%%%%%
 NUM.Viscosity.mu = MESH.CompVar.mu_ref(NUM.Number.number_quad(j,i))*(NUM.Strain.str_invariant./MESH.CompVar.str_ref(NUM.Number.number_quad(j,i))).^(1./MESH.CompVar.powerlaw(NUM.Number.number_quad(j,i))-1);
 NUM.Viscosity.mu = 1./(1./NUM.Viscosity.mu + 1./(MESH.CompVar.G(NUM.Number.number_quad(j,i))*PAR.dt)); 
-%%%%%%%%%%%%%%%%%% NEEDS TO BE TURNED ON %%%%%%%%%%%%
 
-% For the visco-elastic case uncomment this
+% % For the viscous case uncomment this
+% NUM.Viscosity.mu = MESH.CompVar.mu_ref(NUM.Number.number_quad(j,i));
+
+% % For the visco-elastic case uncomment this
 % NUM.Viscosity.mu = MESH.CompVar.G(NUM.Number.number_quad(j,i)) *PAR.dt;          
 
 mu_vis = NUM.Viscosity.mu;
+mu_vis(mu_vis<LowerCutoff) = LowerCutoff;
+mu_vis(mu_vis>UpperCutoff) = UpperCutoff;
+mu_vis(isnan(mu_vis))      = UpperCutoff;
 
 %% Plastic
-if NUM.Plasticity.Plasticity
+
+% % For Anton_benchmark runs uncomment this
+% %%%REMOVE THIS%%%
+% X = MESH.GCOORD(1,:);
+% X = X(NUM.Number.number_2d);
+% ind = find(X < 5e3/CHAR.Length | X >= 34.9e3/CHAR.Length) ;
+% %%%REMOVE THIS%%%
+
+if NUM.Plasticity.Plasticity %  &&  all(NUM.Number.number_quad(j,i) ~= NUM.Number.number_2d(ind)) == 1  %%%REMOVE THIS%%%
    
     if NUM.Solve.number_pic == 1 && NUM.time == 0   % in the first iteration in the first timestep pressure is set to 1
         p = ones(size(NUM.Solve.r(NUM.Number.number_ele_dof(NUM.NUMERICS.no_nodes_ele*2+1:NUM.NUMERICS.no_nodes_ele*2+NUM.NUMERICS.no_nodes_ele_linear,i),1)));
@@ -100,6 +121,10 @@ if NUM.Plasticity.Plasticity
     [ NUM ] = Compute_YieldStress( NUM,p,MESH,i,j,PAR );
     
     mu_pl  = NUM.Plasticity.Tau_yield_2d(j,i)/(2*NUM.Strain.str_invariant);
+    mu_pl(mu_pl<LowerCutoff) = LowerCutoff;
+    mu_pl(mu_pl>UpperCutoff) = UpperCutoff;
+    mu_pl(isnan(mu_pl))      = UpperCutoff;
+    
     NUM.Viscosity.mu = min(mu_vis, mu_pl);
     
     if NUM.Viscosity.mu == mu_pl

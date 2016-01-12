@@ -1,10 +1,10 @@
-function [beta_step_star ] = zoom_tot( beta_low,beta_high,NUM,MESH,PAR,sol_ini,dx,fcost_ini,grad_ini,dcost_du,fcost,CHAR)
+function [beta_step_star ] = Adjoint_zoom( beta_low,beta_high,NUM,MESH,PAR,sol_ini,dx,fcost_ini,grad_ini,dcost_du,fcost,CHAR)
 %UNTITLED3 Summary of this function goes here
 %   Detailed explanation goes here
 k = 1;
 npar        = length(NUM.Adjoint.m);
 
-while k<10
+while k<7
     %     % cubic interpolation
     %     r1 = dcost_du_old + dcost_du - 3*((fcost_old - fcost)/(beta_step_old - beta_step));
     %     r2 = sqrt(r1.^2 - dcost_du_old .* dcost_du);
@@ -19,7 +19,30 @@ while k<10
     [NUM.Adjoint.m] = denormalize(NUM,NUM.Adjoint.m,npar);
     [NUM.Adjoint.m] = nondimensionalize(NUM,NUM.Adjoint.m,npar,CHAR);
     for par = 1:length(NUM.Adjoint.fields)
-        MESH.CompVar.(NUM.Adjoint.fields{par})(NUM.Adjoint.index{par}) = NUM.Adjoint.m(par,1);
+        if isfield(MESH.CompVar,NUM.Adjoint.fields{par}) == 1
+            MESH.CompVar.(NUM.Adjoint.fields{par})(NUM.Adjoint.index{par}) = NUM.Adjoint.m(par,1);
+        elseif strcmp(NUM.Adjoint.fields{par},'rad') == 1
+            
+            MESH.CompVar.rho         = ones(1,NUM.NUMERICS.no_nodes) * NUM.Adjoint.m(1,1);
+            MESH.CompVar.mu_ref      = ones(1,NUM.NUMERICS.no_nodes) * NUM.Adjoint.m(4,1);
+            MESH.CompVar.str_ref     = ones(1,NUM.NUMERICS.no_nodes) * (-NUM.ebg)/(1/CHAR.Time);
+            MESH.CompVar.powerlaw    = ones(1,NUM.NUMERICS.no_nodes) * PAR.n1;
+            MESH.CompVar.Phase       = ones(1,NUM.NUMERICS.no_nodes);
+            MESH.CompVar.G           = ones(size(MESH.GCOORD(2,:)))*PAR.G/CHAR.Stress;
+            rad = NUM.Adjoint.m(par,1);
+            ind = find((MESH.GCOORD(1,:) - (PAR.W/2)).^2 + (MESH.GCOORD(2,:) - (PAR.H/2)).^2 < rad^2);
+            MESH.CompVar.rho(ind)         = NUM.Adjoint.m(3,1);
+            MESH.CompVar.mu_ref(ind)      = PAR.mu_2/CHAR.Viscosity ;
+            MESH.CompVar.str_ref(ind)     = (-NUM.ebg)/(1/CHAR.Time);
+            MESH.CompVar.powerlaw(ind)    = PAR.n1;
+            MESH.CompVar.Phase(ind)       = 2;
+            MESH.CompVar.G(ind)           = PAR.G/CHAR.Stress;
+            
+        elseif isfield(PAR,NUM.Adjoint.fields{par}) == 1
+            PAR.(NUM.Adjoint.fields{par})(NUM.Adjoint.index{par}) = NUM.Adjoint.m(par,1);
+        else
+            display('Design variable seems to not be defined for the variable update')
+        end
     end
     [NUM.Adjoint.m] = denondimensionalize(NUM,NUM.Adjoint.m,npar,CHAR);
     [NUM.Adjoint.m] = normalize(NUM,NUM.Adjoint.m,npar);
@@ -34,7 +57,30 @@ while k<10
     [NUM.Adjoint.m] = denormalize(NUM,NUM.Adjoint.m,npar);
     [NUM.Adjoint.m] = nondimensionalize(NUM,NUM.Adjoint.m,npar,CHAR);
     for par = 1:length(NUM.Adjoint.fields)
-        MESH.CompVar.(NUM.Adjoint.fields{par})(NUM.Adjoint.index{par}) = NUM.Adjoint.m(par,1);
+        if isfield(MESH.CompVar,NUM.Adjoint.fields{par}) == 1
+            MESH.CompVar.(NUM.Adjoint.fields{par})(NUM.Adjoint.index{par}) = NUM.Adjoint.m(par,1);
+        elseif strcmp(NUM.Adjoint.fields{par},'rad') == 1
+            
+            MESH.CompVar.rho         = ones(1,NUM.NUMERICS.no_nodes) * NUM.Adjoint.m(1,1);
+            MESH.CompVar.mu_ref      = ones(1,NUM.NUMERICS.no_nodes) * NUM.Adjoint.m(4,1);
+            MESH.CompVar.str_ref     = ones(1,NUM.NUMERICS.no_nodes) * (-NUM.ebg)/(1/CHAR.Time);
+            MESH.CompVar.powerlaw    = ones(1,NUM.NUMERICS.no_nodes) * PAR.n1;
+            MESH.CompVar.Phase       = ones(1,NUM.NUMERICS.no_nodes);
+            MESH.CompVar.G           = ones(size(MESH.GCOORD(2,:)))*PAR.G/CHAR.Stress;
+            rad = NUM.Adjoint.m(par,1);
+            ind = find((MESH.GCOORD(1,:) - (PAR.W/2)).^2 + (MESH.GCOORD(2,:) - (PAR.H/2)).^2 < rad^2);
+            MESH.CompVar.rho(ind)         = NUM.Adjoint.m(3,1);
+            MESH.CompVar.mu_ref(ind)      = PAR.mu_2/CHAR.Viscosity ;
+            MESH.CompVar.str_ref(ind)     = (-NUM.ebg)/(1/CHAR.Time);
+            MESH.CompVar.powerlaw(ind)    = PAR.n1;
+            MESH.CompVar.Phase(ind)       = 2;
+            MESH.CompVar.G(ind)           = PAR.G/CHAR.Stress;
+            
+        elseif isfield(PAR,NUM.Adjoint.fields{par}) == 1
+            PAR.(NUM.Adjoint.fields{par})(NUM.Adjoint.index{par}) = NUM.Adjoint.m(par,1);
+        else
+            display('Design variable seems to not be defined for the variable update')
+        end
     end
     [NUM.Adjoint.m] = denondimensionalize(NUM,NUM.Adjoint.m,npar,CHAR);
     [NUM.Adjoint.m] = normalize(NUM,NUM.Adjoint.m,npar);
@@ -52,13 +98,8 @@ while k<10
         [NUM.Adjoint.m] = denormalize(NUM,NUM.Adjoint.m,npar);
         [NUM.Adjoint.m] = nondimensionalize(NUM,NUM.Adjoint.m,npar,CHAR);
         for par = 1:length(NUM.Adjoint.fields)   % loop over design variables
-            h_max = 1e-28;
-            h = max([(1e-6*abs(NUM.Adjoint.m(par,1))), h_max]);
-            input = MESH.CompVar.(NUM.Adjoint.fields{par});
-            index = NUM.Adjoint.index{par};
-            field = NUM.Adjoint.fields{par};    % the perturbed field in the MESH.CompVar structure
             % Compute residual by forward finite differences
-            [ drdx_temp ] = AdjointRes( NUM,PAR,MESH,h,input,index,field,par,CHAR );
+            [ drdx_temp ] = AdjointRes( NUM,PAR,MESH,par,CHAR);
             drdx(:,par) = drdx_temp;
         end
         [NUM.Adjoint.m] = denondimensionalize(NUM,NUM.Adjoint.m,npar,CHAR);
@@ -116,8 +157,15 @@ for par = 1:npar
         m(par,1) = m(par,1);
     elseif strcmp(NUM.Adjoint.fields{par},'str_ref') == 1
         m(par,1) = m(par,1)/(1/CHAR.Time);
+    elseif strcmp(NUM.Adjoint.fields{par},'mu_ref') == 1 || strcmp(NUM.Adjoint.fields{par},'mu') == 1
+        m(par,1) = m(par,1)/CHAR.Viscosity;
     elseif isfield(CHAR,NUM.Adjoint.fields{par}) == 1
         m(par,1) = m(par,1)/CHAR.(NUM.Adjoint.fields{par});
+        
+    elseif strcmp(NUM.Adjoint.fields{par},'g') == 1
+        m(par,1) = m(par,1)/CHAR.Gravity;
+    elseif strcmp(NUM.Adjoint.fields{par},'rad') == 1
+        m(par,1) = m(par,1)/CHAR.Length;
     end
 end
 
@@ -128,7 +176,14 @@ for par = 1:npar
         m(par,1) = m(par,1);
     elseif strcmp(NUM.Adjoint.fields{par},'str_ref') == 1
         m(par,1) = m(par,1)*(1/CHAR.Time);
+    elseif strcmp(NUM.Adjoint.fields{par},'mu_ref') == 1 || strcmp(NUM.Adjoint.fields{par},'mu') == 1
+        m(par,1) = m(par,1)*CHAR.Viscosity;
     elseif isfield(CHAR,NUM.Adjoint.fields{par}) == 1
         m(par,1) = m(par,1)*(CHAR.(NUM.Adjoint.fields{par}));
+        
+    elseif strcmp(NUM.Adjoint.fields{par},'g') == 1
+        m(par,1) = m(par,1)*CHAR.Gravity;
+    elseif strcmp(NUM.Adjoint.fields{par},'rad') == 1
+        m(par,1) = m(par,1)*CHAR.Length;
     end
 end

@@ -78,7 +78,7 @@ switch NUM.Timestep.method
 end
 
 % Update strains for elasticity
-[ NUM ] = Update_StressesAndStrains(NUM,PAR,MESH );
+[NUM] = Update_StressesAndStrains(NUM,PAR,MESH);
 
 
 

@@ -1,4 +1,4 @@
-function [ NI,dNI ] = Shape_Functions( no_nodes_ele,j,COORD )
+function [ NI,dNI ] = get_shape_functions( no_nodes_ele,j,COORD )
 
 % j is the index of the current intprop
 

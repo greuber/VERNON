@@ -1,7 +1,17 @@
 function [ NUM,MESH] = Solver(NUM,PAR,MESH,CHAR )
+%% --------------- %% Solver function %% --------------- %%
+% Solves the Stokes equations with either analytical Jacobian or Picard
+% matrix. Order:
+% 1) Compute the chosen global matrix
+% 2) Compute the residual element wise based on the current solution
+% 3) Compute the update on the solution vector and finally update the
+% solution
+% 4) If the relative residual is lower then the tolerance update the
+% stresses and strains
+%%-------------------------------------------------------%%
 
 NUM.Solve.number_pic = 1;
-max_iter             = 20;
+max_iter             = 100;
 N_f_res_old          = realmax;
 LS                   = 1;
 no_picard            = 1;
@@ -9,7 +19,7 @@ NUM.Solve.Solver     = NUM.Solve.Solver_method;
 res_ini              = 1;
 number_new           = 1;
 
-atol = 1e-10;
+atol = 1e-15;
 tol_picard = 5e-1;   % when to switch to Newton iterations
 
 % apply bounds on the solution vector
@@ -17,10 +27,15 @@ for i = 1:1:length(NUM.Boundary.bcdof)
     NUM.Solve.r(NUM.Boundary.bcdof(i)) = NUM.Boundary.bcval(i);
 end
 
-
+if isfield(NUM,'Convergence_normalized')
+    NUM  = rmfield(NUM,'Convergence_normalized');
+end
+if isfield(NUM,'Convergence_total')
+    NUM  = rmfield(NUM,'Convergence_total');
+end
 
 % get all shape function combinations at once
-[NUM ] = ComputeShapeFunctionsVector( MESH.INTP.COORD,NUM );
+[NUM ] = Compute_ShapeFunctionsVector( MESH.INTP.COORD,NUM );
 
 while NUM.Solve.number_pic<=max_iter
     
@@ -32,8 +47,8 @@ while NUM.Solve.number_pic<=max_iter
             NUM.Solve.Solver        = 'Newton';
             number_new    = 1;
         else
-            NUM.Solve.Solver = 'Picard';
-            % number_new    = 1;
+            NUM.Solve.Solver = 'Newton';
+            number_new    = 1;
         end
     end
     
@@ -49,33 +64,33 @@ while NUM.Solve.number_pic<=max_iter
             
             NUM.time_solver_iter = cputime;
             
-% %           Oldschool Picard
+% % %           Oldschool Picard
 %             [ NUM,MESH ]    = get_globals_picard( NUM,PAR,MESH,CHAR);
 %             NUM.Solve.f_res = NUM.Solve.L*NUM.Solve.r - NUM.Solve.FG;
-% %             [ NUM,MESH ]     = Compute_elemental_residual( NUM,MESH,PAR,CHAR );
 %             NUM.Solve.r     = NUM.Solve.L\NUM.Solve.FG;
-%             NUM.time_solver_iter = cputime - NUM.time_solver_iter;
 
-                    [ NUM,MESH ]    = get_globals_picard( NUM,PAR,MESH,CHAR);
+                    [ NUM,MESH ]     = get_globals_picard( NUM,PAR,MESH,CHAR);
                     [ NUM,MESH ]     = Compute_elemental_residual( NUM,MESH,PAR,CHAR );
-                    dr               = NUM.Solve.L\(-NUM.Solve.f_res);  
-                    
+                    dr               = NUM.Solve.L\(-NUM.Solve.f_res); 
+
                     alpha = 1;
                     r_0 = NUM.Solve.r;
                     
-             NUM.Solve.r      = r_0 + alpha * dr;
-
-            if strcmp(NUM.Timestep.method,'EulerImplicit') == 1
-                MESH.GCOORD(1,:) = MESH.Old(1,:) + NUM.Solve.r(NUM.Number.number_dof(1,1:NUM.NUMERICS.no_nodes))' * PAR.dt;
-                MESH.GCOORD(2,:) = MESH.Old(2,:) + NUM.Solve.r(NUM.Number.number_dof(2,1:NUM.NUMERICS.no_nodes))' * PAR.dt;
-            end
-            
-            display(sprintf('norm residual picard = %6.3e',(norm(NUM.Solve.f_res)/(res_ini))));
-            
+                    NUM.Solve.r      = r_0 + alpha * dr;
+                    
+                    NUM.time_solver_iter = cputime - NUM.time_solver_iter;
+                    
+                    if strcmp(NUM.Timestep.method,'EulerImplicit') == 1
+                        MESH.GCOORD(1,:) = MESH.Old(1,:) + NUM.Solve.r(NUM.Number.number_dof(1,1:NUM.NUMERICS.no_nodes))' * PAR.dt;
+                        MESH.GCOORD(2,:) = MESH.Old(2,:) + NUM.Solve.r(NUM.Number.number_dof(2,1:NUM.NUMERICS.no_nodes))' * PAR.dt;
+                    end
+                    
+                    display(sprintf('norm residual picard = %6.3e',(norm(NUM.Solve.f_res)/(res_ini))));
+                    
         case 'Newton'
             if NUM.Solve.BrutalForce == 1
                 [ NUM ] = Compute_elemental_residual( NUM,MESH,PAR,CHAR );
-                NUM.Solve.f_res_brutal = NUM.Solve.f_res; 
+                NUM.Solve.f_res_brutal = NUM.Solve.f_res;
                 display(sprintf('norm residual brutal = %6.3e',norm(NUM.Solve.f_res_brutal/res_ini)));
                 NUM.Solve.f_res = NUM.Solve.f_res_brutal;
             end
@@ -86,7 +101,7 @@ while NUM.Solve.number_pic<=max_iter
                     [ NUM,MESH ]     = get_globals_Jacobian_analytical( NUM,PAR,MESH ,CHAR);
                     % [ NUM,MESH ]    = get_globals_picard( NUM,PAR,MESH,CHAR);
                     [ NUM,MESH ]     = Compute_elemental_residual( NUM,MESH,PAR,CHAR );
-                    dr               = NUM.Solve.J\(-NUM.Solve.f_res);                    
+                    dr               = NUM.Solve.J\(-NUM.Solve.f_res);
                     
                     switch NUM.Solve.Linesearch
                         case 'Bisection'
@@ -171,13 +186,8 @@ while NUM.Solve.number_pic<=max_iter
                             [NUM.Adjoint.m] = denormalize(NUM,NUM.Adjoint.m,npar);
                             [NUM.Adjoint.m] = nondimensionalize(NUM,NUM.Adjoint.m,npar,CHAR);
                             for par = 1:length(NUM.Adjoint.fields)   % loop over design variables
-                                h_max = 1e-28;
-                                h = max([(1e-6*abs(NUM.Adjoint.m(par,1))), h_max]);
-                                input = MESH.CompVar.(NUM.Adjoint.fields{par});
-                                index = NUM.Adjoint.index{par};
-                                field = NUM.Adjoint.fields{par};    % the perturbed field in the MESH.CompVar structure
                                 % Compute residual by forward finite differences
-                                [ drdx_temp ] = AdjointRes( NUM,PAR,MESH,h,input,index,field ,par,CHAR);
+                                [ drdx_temp ] = Adjoint_Res( NUM,PAR,MESH,par,CHAR);
                                 drdx(:,par) = drdx_temp;
                             end
                             [NUM.Adjoint.m] = denondimensionalize(NUM,NUM.Adjoint.m,npar,CHAR);
@@ -199,12 +209,14 @@ while NUM.Solve.number_pic<=max_iter
                             NUM.Adjoint.adjoint_tol = norm(grad)*1e-3;   % to end when the error is 3 orders smaller than the in iitla one
                             
                             % save step-size
-                            beta_step = (1./abs(grad)');   
+                            beta_step = (1./abs(grad)')./NUM.Adjoint.LS_Parameter;
+                            
+                            beta_step_star = zeros(size(beta_step));
                             
                             % Compute first search-direction
                             dx = -H*grad';
                             
-                        else      % every iteration starting from the second                          
+                        else      % every iteration starting from the second
                             % Update variables for the line search (needs
                             % the 'initial' values to compare)
                             fcost_ini = fcost;
@@ -219,11 +231,11 @@ while NUM.Solve.number_pic<=max_iter
                             % save step-size
                             beta_step = (1./abs(dx))./NUM.Adjoint.LS_Parameter;
                             
-                            for par = 1:npar
-                                if (sol_ini(par) + beta_step(par)*dx(par) >= NUM.Adjoint.bounds{par}(2))
-                                    beta_step(par) = beta_step(par)/dx(par);
-                                end
-                            end
+                            %                             for par = 1:npar
+                            %                                 if (sol_ini(par) + beta_step(par)*dx(par) >= NUM.Adjoint.bounds{par}(2))
+                            %                                     beta_step(par) = beta_step(par)/dx(par);
+                            %                                 end
+                            %                             end
                             
                             
                             beta_step_max = 1;
@@ -238,7 +250,30 @@ while NUM.Solve.number_pic<=max_iter
                                 [NUM.Adjoint.m] = denormalize(NUM,NUM.Adjoint.m,npar);
                                 [NUM.Adjoint.m] = nondimensionalize(NUM,NUM.Adjoint.m,npar,CHAR);
                                 for par = 1:length(NUM.Adjoint.fields)
-                                    MESH.CompVar.(NUM.Adjoint.fields{par})(NUM.Adjoint.index{par}) = NUM.Adjoint.m(par,1);
+                                    if isfield(MESH.CompVar,NUM.Adjoint.fields{par}) == 1
+                                        MESH.CompVar.(NUM.Adjoint.fields{par})(NUM.Adjoint.index{par}) = NUM.Adjoint.m(par,1);
+                                    elseif strcmp(NUM.Adjoint.fields{par},'rad') == 1
+                                        
+                                        MESH.CompVar.rho         = ones(1,NUM.NUMERICS.no_nodes) * NUM.Adjoint.m(1,1);
+                                        MESH.CompVar.mu_ref      = ones(1,NUM.NUMERICS.no_nodes) * NUM.Adjoint.m(4,1);
+                                        MESH.CompVar.str_ref     = ones(1,NUM.NUMERICS.no_nodes) * (-NUM.ebg)/(1/CHAR.Time);
+                                        MESH.CompVar.powerlaw    = ones(1,NUM.NUMERICS.no_nodes) * PAR.n1;
+                                        MESH.CompVar.Phase       = ones(1,NUM.NUMERICS.no_nodes);
+                                        MESH.CompVar.G           = ones(size(MESH.GCOORD(2,:)))*PAR.G/CHAR.Stress;
+                                        rad = NUM.Adjoint.m(par,1);
+                                        ind = find((MESH.GCOORD(1,:) - (PAR.W/2)).^2 + (MESH.GCOORD(2,:) - (PAR.H/2)).^2 < rad^2);
+                                        MESH.CompVar.rho(ind)         = NUM.Adjoint.m(3,1);
+                                        MESH.CompVar.mu_ref(ind)      = PAR.mu_2/CHAR.Viscosity ;
+                                        MESH.CompVar.str_ref(ind)     = (-NUM.ebg)/(1/CHAR.Time);
+                                        MESH.CompVar.powerlaw(ind)    = PAR.n1;
+                                        MESH.CompVar.Phase(ind)       = 2;
+                                        MESH.CompVar.G(ind)           = PAR.G/CHAR.Stress;
+                                        
+                                    elseif isfield(PAR,NUM.Adjoint.fields{par}) == 1    
+                                        PAR.(NUM.Adjoint.fields{par})(NUM.Adjoint.index{par}) = NUM.Adjoint.m(par,1);
+                                    else
+                                        display('Design variable seems to not be defined for the variable update')
+                                    end
                                 end
                                 [NUM.Adjoint.m] = denondimensionalize(NUM,NUM.Adjoint.m,npar,CHAR);
                                 [NUM.Adjoint.m] = normalize(NUM,NUM.Adjoint.m,npar);
@@ -248,8 +283,8 @@ while NUM.Solve.number_pic<=max_iter
                                 
                                 % First condition ('sufficient decrease
                                 % condition')
-                                if (fcost > fcost_ini + 1e-4 * beta_step .* grad_ini') | (fcost >= fcost_old)
-                                    [beta_step_star] = zoom_tot( beta_step_old,beta_step,NUM,MESH,PAR,sol_ini,dx,fcost_ini,grad_ini,dcost_du,fcost,CHAR);
+                                if (fcost > fcost_ini + 1e-4 * beta_step .* grad_ini')  | (fcost >= fcost_old)
+                                    [beta_step_star] = Adjoint_zoom( beta_step_old,beta_step,NUM,MESH,PAR,sol_ini,dx,fcost_ini,grad_ini,dcost_du,fcost,CHAR);
                                     beta_step_star = beta_step_star;
                                     break
                                 end
@@ -262,13 +297,8 @@ while NUM.Solve.number_pic<=max_iter
                                 [NUM.Adjoint.m] = denormalize(NUM,NUM.Adjoint.m,npar);
                                 [NUM.Adjoint.m] = nondimensionalize(NUM,NUM.Adjoint.m,npar,CHAR);
                                 for par = 1:length(NUM.Adjoint.fields)   % loop over design variables
-                                    h_max = 1e-28;
-                                    h = max([(1e-6*abs(NUM.Adjoint.m(par,1))), h_max]);
-                                    input = MESH.CompVar.(NUM.Adjoint.fields{par});
-                                    index = NUM.Adjoint.index{par};
-                                    field = NUM.Adjoint.fields{par};    % the perturbed field in the MESH.CompVar structure
                                     % Compute residual by forward finite differences
-                                    [ drdx_temp ] = AdjointRes( NUM,PAR,MESH,h,input,index,field,par ,CHAR);
+                                    [ drdx_temp ] = Adjoint_Res( NUM,PAR,MESH,par,CHAR);
                                     drdx(:,par) = drdx_temp;
                                 end
                                 [NUM.Adjoint.m] = denondimensionalize(NUM,NUM.Adjoint.m,npar,CHAR);
@@ -283,14 +313,14 @@ while NUM.Solve.number_pic<=max_iter
                                 grad = grad';
                                 
                                 % Second condition ('curvature condition')
-                                if abs(grad) <= -0.9*grad_ini   % CHANGED       % BUT GRADIENT IS STILL starting OSCILLATING          % MAYBE COULD BE any(abs(grad) <= abs(-0.9*grad_ini))
+                                if abs(grad) <= -0.9*grad_ini           % MAYBE COULD BE any(abs(grad) <= abs(-0.9*grad_ini))
                                     beta_step_star = beta_step;
                                     break
                                 end
-%                                 if grad >= 0        % CHANGED       % BUT GRADIENT IS STILL starting OSCILLATING          % MAYBE COULD BE any(abs(grad) <= abs(-0.9*grad_ini))
-%                                     [beta_step_star] = zoom_tot( beta_step,beta_step_old,NUM,MESH,PAR,sol_ini,dx,fcost_ini,grad_ini,dcost_du,fcost,CHAR);
-%                                     break
-%                                 end
+                                %                                 if grad >= 0        % CHANGED       % BUT GRADIENT IS STILL starting OSCILLATING          % MAYBE COULD BE any(abs(grad) <= abs(-0.9*grad_ini))
+                                %                                     [beta_step_star] = Adjoint_zoom( beta_step,beta_step_old,NUM,MESH,PAR,sol_ini,dx,fcost_ini,grad_ini,dcost_du,fcost,CHAR);
+                                %                                     break
+                                %                                 end
                                 
                                 % if non of the conditions is fullfilled we
                                 % can increase beta_step (can be done cubic
@@ -302,10 +332,12 @@ while NUM.Solve.number_pic<=max_iter
                                 %                                 r2 = sqrt(r1.^2 - dcost_du_old .* dcost_du);
                                 %                                 beta_step_new = mean(beta_step - (beta_step - beta_step_old) * ((dcost_du + r2 -r1)./(dcost_du - dcost_du_old + 2*r2)));
                                 %
-                                if beta_step >= (beta_step_max-1e-3)
-                                    beta_step_star = beta_step_max;
-                                    break
-                                end
+                                %                                 ind = find(beta_step >= beta_step_max-1e-3);
+                                %                                 if ~isempty(ind)
+                                %                                     beta_step_star = beta_step;
+                                %                                     beta_step_star(ind) = beta_step_max;
+                                %                                     break
+                                %                                 end
                                 
                                 %                                 beta_step_new = real(beta_step_new);
                                 % beta_step_old = beta_step;
@@ -330,13 +362,8 @@ while NUM.Solve.number_pic<=max_iter
                                 [NUM.Adjoint.m] = denormalize(NUM,NUM.Adjoint.m,npar);
                                 [NUM.Adjoint.m] = nondimensionalize(NUM,NUM.Adjoint.m,npar,CHAR);
                                 for par = 1:length(NUM.Adjoint.fields)   % loop over design variables
-                                    h_max = 1e-28;
-                                    h = max([(1e-6*abs(NUM.Adjoint.m(par,1))), h_max]);
-                                    input = MESH.CompVar.(NUM.Adjoint.fields{par});
-                                    index = NUM.Adjoint.index{par};
-                                    field = NUM.Adjoint.fields{par};    % the perturbed field in the MESH.CompVar structure
                                     % Compute residual by forward finite differences
-                                    [ drdx_temp ] = AdjointRes( NUM,PAR,MESH,h,input,index,field,par,CHAR );
+                                    [ drdx_temp ] = Adjoint_Res( NUM,PAR,MESH,par,CHAR);
                                     drdx(:,par) = drdx_temp;
                                 end
                                 [NUM.Adjoint.m] = denondimensionalize(NUM,NUM.Adjoint.m,npar,CHAR);
@@ -356,7 +383,30 @@ while NUM.Solve.number_pic<=max_iter
                             [NUM.Adjoint.m] = denormalize(NUM,NUM.Adjoint.m,npar);
                             [NUM.Adjoint.m] = nondimensionalize(NUM,NUM.Adjoint.m,npar,CHAR);
                             for par = 1:length(NUM.Adjoint.fields)
-                                MESH.CompVar.(NUM.Adjoint.fields{par})(NUM.Adjoint.index{par}) = NUM.Adjoint.m(par,1);
+                                if isfield(MESH.CompVar,NUM.Adjoint.fields{par}) == 1
+                                    MESH.CompVar.(NUM.Adjoint.fields{par})(NUM.Adjoint.index{par}) = NUM.Adjoint.m(par,1);
+                                elseif strcmp(NUM.Adjoint.fields{par},'rad') == 1
+                                    
+                                    MESH.CompVar.rho         = ones(1,NUM.NUMERICS.no_nodes) * NUM.Adjoint.m(1,1);
+                                    MESH.CompVar.mu_ref      = ones(1,NUM.NUMERICS.no_nodes) * NUM.Adjoint.m(4,1) ;
+                                    MESH.CompVar.str_ref     = ones(1,NUM.NUMERICS.no_nodes) * (-NUM.ebg)/(1/CHAR.Time);
+                                    MESH.CompVar.powerlaw    = ones(1,NUM.NUMERICS.no_nodes) * PAR.n1;
+                                    MESH.CompVar.Phase       = ones(1,NUM.NUMERICS.no_nodes);
+                                    MESH.CompVar.G           = ones(size(MESH.GCOORD(2,:)))*PAR.G/CHAR.Stress;
+                                    rad = NUM.Adjoint.m(par,1);
+                                    ind = find((MESH.GCOORD(1,:) - (PAR.W/2)).^2 + (MESH.GCOORD(2,:) - (PAR.H/2)).^2 < rad^2);
+                                    MESH.CompVar.rho(ind)         = NUM.Adjoint.m(3,1);
+                                    MESH.CompVar.mu_ref(ind)      = PAR.mu_2/CHAR.Viscosity ;
+                                    MESH.CompVar.str_ref(ind)     = (-NUM.ebg)/(1/CHAR.Time);
+                                    MESH.CompVar.powerlaw(ind)    = PAR.n1;
+                                    MESH.CompVar.Phase(ind)       = 2;
+                                    MESH.CompVar.G(ind)           = PAR.G/CHAR.Stress;
+                                    
+                                elseif isfield(PAR,NUM.Adjoint.fields{par}) == 1
+                                    PAR.(NUM.Adjoint.fields{par})(NUM.Adjoint.index{par}) = NUM.Adjoint.m(par,1);
+                                else
+                                    display('Design variable seems to not be defined for the variable update')
+                                end
                             end
                             [NUM.Adjoint.m] = denondimensionalize(NUM,NUM.Adjoint.m,npar,CHAR);
                             [NUM.Adjoint.m] = normalize(NUM,NUM.Adjoint.m,npar);
@@ -365,22 +415,19 @@ while NUM.Solve.number_pic<=max_iter
                             dp = NUM.Adjoint.m - sol_ini;
                             vp = grad - grad_ini;
                             
-                            %                             if NUM.Adjoint.it_adj == 2
-                            %                                 % First initial guess of Hessian (approximates
-                            %                             % an eigenvalue of the Hessian (can maybe be
-                            %                             % left))
-                            %                             H = (vp*dx)/(vp*vp');
-                            %                             else
                             H = eye(length(NUM.Adjoint.fields),length(NUM.Adjoint.fields));
-                            %                             end
                             
                             r = (dp./(dp.*vp')) - ((H*vp')/(vp*H*vp'));
-                            
-                            
                             
                             % Approximate inverse Hessian with BFGS
                             % algorithm
                             H = H - ((H*vp'*(H*vp')')/(vp*H*vp')) + ((dp*dp')/(dp'*vp')) + (vp*H*vp'*(r*r'));   % = H^-1
+                            
+                            H(isnan(H)) = 0;
+                            H(isinf(H)) = 0;
+                            
+                            inv(H)   % print the correct Hessian (as BFGS gives the inverse Hessian)
+                            
                             
                             % check for positive definiteness of H
                             [~,p] = chol(H);
@@ -390,6 +437,8 @@ while NUM.Solve.number_pic<=max_iter
                             
                             % Compute new search-direction
                             dx = -H*grad';
+                            
+                            dx    % print the search direction vector
                             
                         end
                         
@@ -407,44 +456,47 @@ while NUM.Solve.number_pic<=max_iter
                         
                         figure(1),clf
                         for par = 1:length(NUM.Adjoint.fields)
-                            design1_2d = MESH.CompVar.(NUM.Adjoint.fields{par})(NUM.Number.number_2d);
-                            subplot(length(NUM.Adjoint.fields),1,par)
-                            pcolor(X,Z,design1_2d)
+                            if isfield(MESH.CompVar,(NUM.Adjoint.fields{par})) == 1
+                                design1_2d = MESH.CompVar.(NUM.Adjoint.fields{par})(NUM.Number.number_2d);
+                                subplot(length(NUM.Adjoint.fields),1,par)
+                                pcolor(X,Z,design1_2d)
+                            elseif isfield(PAR,(NUM.Adjoint.fields{par})) == 1
+                                design1 = PAR.(NUM.Adjoint.fields{par});
+                                subplot(length(NUM.Adjoint.fields),1,par)
+                                plot(design1,'ro','MarkerSize',5)
+                            end
                             colorbar
-                            %                             if par == 1
-                            %                                 caxis([1 2])
-                            %                             elseif par ==2
-                            %                                 caxis([1 10])
-                            %                             elseif par == 3
-                            %                                 caxis([5 10])
-                            %                             elseif par ==4
-                            %                                 caxis([1 2])
-                            %                             end
                             title(['design variable ',num2str(par),' after ',num2str(NUM.Adjoint.it_adj),' iteration; Norm cost function = ',num2str(norm(fcost))])
                         end
                         drawnow
-                        %                         fname = (['Iteration_jioint_3_',num2str(NUM.Adjoint.it_adj)]);
-                        %                         print(fname,'-dpng','-zbuffer','-r300')
+                        
+                        % fname = (['Iteration_jioint_3_',num2str(NUM.Adjoint.it_adj)]);
+                        % print(fname,'-dpng','-zbuffer','-r300')
                         
                         % MESH.CompVar.powerlaw
                         % MESH.CompVar.rho*CHAR.rho
                         
-                        %                                                                         rho_sur_temp = mean(MESH.CompVar.rho(unique((NUM.Adjoint.index{3}))));
-                        %                                                                         power_sur_temp = mean(MESH.CompVar.powerlaw(unique((NUM.Adjoint.index{1}))));
-                        %                                                                         power_block_temp = mean(MESH.CompVar.powerlaw(unique((NUM.Adjoint.index{4}))));
-                        %                                                                         mu_temp = mean(MESH.CompVar.mu_ref(unique((NUM.Adjoint.index{2}))));
-                        %                                                                         save(['Adjoint_vectorized_4_',num2str(NUM.Adjoint.it_adj),'Rising_Sphere'],'power_sur_temp','mu_temp','rho_sur_temp','power_block_temp')
+                        % rho_sur_temp = mean(MESH.CompVar.rho(unique((NUM.Adjoint.index{3}))));
+                        % power_sur_temp = mean(MESH.CompVar.powerlaw(unique((NUM.Adjoint.index{1}))));
+                        % power_block_temp = mean(MESH.CompVar.powerlaw(unique((NUM.Adjoint.index{4}))));
+                        % mu_temp = mean(MESH.CompVar.mu_ref(unique((NUM.Adjoint.index{2}))));
+                        % save(['Adjoint_vectorized_4_',num2str(NUM.Adjoint.it_adj),'Rising_Sphere'],'power_sur_temp','mu_temp','rho_sur_temp','power_block_temp')
                         
                         display('------------------------------------------------------ ')
                         display(['NORM OF THE GRADIENT = ',num2str(norm(grad))])
-                        display(['COST FUNCTION = ',num2str(fcost)])
-                        display(['BETA STEP = ',num2str(beta_step')])
+                        display(['COST FUNCTION        = ',num2str(fcost)])
+                        display(['BETA STEP            = ',num2str(beta_step')])
                         display('------------------------------------------------------ ')
                         
                         % update old variables
                         NUM.Adjoint.it_adj = NUM.Adjoint.it_adj + 1;
                         fcost_old = fcost;
                         dcost_du_old = dcost_du;
+                        
+                        % % denormalize the gradient for the stopping
+                        % % criteria
+                        % [grad] = denormalize(NUM,grad',npar);
+                        % grad   = grad';
                         
                     end
                     
@@ -459,6 +511,7 @@ while NUM.Solve.number_pic<=max_iter
                     if NUM.Plasticity.Plasticity
                         NUM.Plasticity.Plastic = zeros(NUM.NUMERICS.no_intp,NUM.NUMERICS.no_elems_global)   ;
                     end
+                    
                     for i = 1:NUM.NUMERICS.no_elems_global
                         f_quad_val = zeros(NUM.NUMERICS.no_nodes_ele*2,1);
                         f_line_val = zeros(NUM.NUMERICS.no_nodes_ele_linear,1);
@@ -470,6 +523,8 @@ while NUM.Solve.number_pic<=max_iter
                         f_res_old(NUM.NUMERICS.no_nodes_ele*2+1:NUM.NUMERICS.no_nodes_ele*2+NUM.NUMERICS.no_nodes_ele_linear,1) = f_line_val;
                         
                         for j = 1:NUM.NUMERICS.no_nodes_ele*2
+                            f_quad_val = zeros(NUM.NUMERICS.no_nodes_ele*2,1);
+                            f_line_val = zeros(NUM.NUMERICS.no_nodes_ele_linear,1);
                             tmp = u(j);
                             u(j) = u(j) + PAR.perturb ;
                             [ NUM,f_quad_val,f_line_val,MESH ] = get_element_res( p,u,PAR ,MESH,NUM,i,CHAR,f_quad_val,f_line_val);
@@ -477,19 +532,20 @@ while NUM.Solve.number_pic<=max_iter
                             f_res_new(NUM.NUMERICS.no_nodes_ele*2+1:NUM.NUMERICS.no_nodes_ele*2+NUM.NUMERICS.no_nodes_ele_linear,1) = f_line_val;
                             J(:,j) = (f_res_new - f_res_old) /PAR.perturb;
                             u(j) = tmp ;
-                            
                         end
                         
                         for j = 1:NUM.NUMERICS.no_nodes_ele_linear
+                            f_quad_val = zeros(NUM.NUMERICS.no_nodes_ele*2,1);
+                            f_line_val = zeros(NUM.NUMERICS.no_nodes_ele_linear,1);
                             tmp = p(j);
                             p(j) = p(j) + PAR.perturb ;
                             [ NUM,f_quad_val,f_line_val,MESH ] = get_element_res( p,u,PAR ,MESH,NUM,i,CHAR,f_quad_val,f_line_val);
                             f_res_new(1:NUM.NUMERICS.no_nodes_ele*2,1)  = f_quad_val;
                             f_res_new(NUM.NUMERICS.no_nodes_ele*2+1:NUM.NUMERICS.no_nodes_ele*2+NUM.NUMERICS.no_nodes_ele_linear,1) = f_line_val;
                             J(:,j+(NUM.NUMERICS.no_nodes_ele*2)) = (f_res_new - f_res_old) /PAR.perturb;
-                            p(j) = tmp;
-                            
+                            p(j) = tmp; 
                         end
+                        
                         vec(:,i) = J(:);
                         NUM.Solve.f_res(NUM.Number.number_ele_dof(:,i),1) = NUM.Solve.f_res(NUM.Number.number_ele_dof(:,i),1) + f_res_old;
                     end
@@ -508,37 +564,91 @@ while NUM.Solve.number_pic<=max_iter
                     
                     for i = 1:1:length(NUM.Boundary.bcdof)
                         J_global(NUM.Boundary.bcdof(i),:) = 0;
+                        J_global(:,NUM.Boundary.bcdof(i)) = 0;
                         J_global(NUM.Boundary.bcdof(i),NUM.Boundary.bcdof(i)) = 1;
                         NUM.Solve.f_res(NUM.Boundary.bcdof(i)) = 0;
                     end
                     
-                    % for i = 1:1:length(NUM.Boundary.bcdof)
-                    % NUM.Solve.r(NUM.Boundary.bcdof(i)) = NUM.Boundary.bcval(i);
-                    % end
-                    
                     dr    = J_global\(-NUM.Solve.f_res);
-                    NUM.Solve.r = NUM.Solve.r + dr;
+                    
+                    switch NUM.Solve.Linesearch
+                        case 'Bisection'
+                            % Bisection line-search
+                            alpha = 1;
+                            r_0   = NUM.Solve.r;
+                            
+                            while norm(N_f_res_old) < norm(NUM.Solve.f_res) && LS <= 10 && NUM.Solve.number_pic>1
+                                alpha           = alpha/2;
+                                NUM.Solve.r     = r_0 + alpha * dr;
+                                [ NUM ]          = Compute_elemental_residual( NUM,MESH,PAR,CHAR );
+                                LS              = LS + 1;
+                            end
+                            N_f_res_old     = norm(NUM.Solve.f_res);
+                            LS              = 1;
+                            
+                            
+                        case 'Jeremic'
+                            % Jeremic line-search
+                            r_0      = NUM.Solve.r;
+                            res_0    = NUM.Solve.f_res;
+                            alpha           = 1;
+                            omega           = 0.25;
+                            temp            = J_global*dr;
+                            dF              = temp;
+                            F_new           = res_0 + alpha*omega * dF;
+                            
+                            NUM.Solve.r     = r_0 + alpha*dr;
+                            [ NUM ]          = Compute_elemental_residual( NUM,MESH,PAR,CHAR );
+                            
+                            while norm(NUM.Solve.f_res) > norm(F_new)
+                                alpha           = alpha/2;
+                                dF              = temp;
+                                F_new           = res_0 + alpha*omega * dF;
+                                NUM.Solve.r     = r_0 + alpha*dr;
+                                [ NUM ]          = Compute_elemental_residual( NUM,MESH,PAR,CHAR );
+                                
+                                if alpha < 0.01
+                                    break;
+                                end
+                            end
+                            
+                        case 'none'
+                            alpha = 1;
+                            r_0 = NUM.Solve.r;
+                    end
+                    
+                    NUM.Solve.r      = r_0 + alpha * dr; 
+                    
+                    NUM.time_solver_iter = cputime - NUM.time_solver_iter ;
                     
                     if strcmp(NUM.Timestep.method,'EulerImplicit') == 1
                         MESH.GCOORD(1,:) = MESH.Old(1,:) + NUM.Solve.r(NUM.Number.number_dof(1,1:NUM.NUMERICS.no_nodes))' * PAR.dt;
                         MESH.GCOORD(2,:) = MESH.Old(2,:) + NUM.Solve.r(NUM.Number.number_dof(2,1:NUM.NUMERICS.no_nodes))' * PAR.dt;
                     end
                     
-                    NUM.time_solver_iter = cputime - NUM.time_solver_iter;
-                    display(sprintf('norm residual newton = %6.3e',(norm(NUM.Solve.f_res)/(res_ini))));
+                    display(sprintf('norm residual newton = %6.3e; alpha = %4.4f',(norm(NUM.Solve.f_res)/(res_ini)),alpha));
+                    number_new = number_new + 1;    
                     
             end
     end
+    
+    NUM.Convergence_total(1,NUM.Solve.number_pic) = norm(NUM.Solve.f_res);
+    NUM.Convergence_normalized(1,NUM.Solve.number_pic) = norm(NUM.Solve.f_res)/(res_ini);
     
     if NUM.Solve.number_pic == 1
         res_ini = norm(NUM.Solve.f_res);
     end
     
-    if norm(NUM.Solve.f_res) < res_ini * PAR.tol + atol || NUM.Solve.number_pic >=max_iter
+    if norm(NUM.Solve.f_res)/(res_ini) < PAR.tol + atol || NUM.Solve.number_pic >=max_iter
         % Stresses and Strains are updated in 'Timestepping'
         break
     end
     
+    if norm(NUM.Solve.f_res)/(res_ini) > 1e10
+        display('Code did not converge')
+        break
+    end
+
     NUM.Solve.number_pic = NUM.Solve.number_pic+1;
     
 end
@@ -580,6 +690,11 @@ for par = 1:npar
         m(par,1) = m(par,1)/CHAR.Viscosity;
     elseif isfield(CHAR,NUM.Adjoint.fields{par}) == 1
         m(par,1) = m(par,1)/CHAR.(NUM.Adjoint.fields{par});
+        
+    elseif strcmp(NUM.Adjoint.fields{par},'g') == 1
+        m(par,1) = m(par,1)/CHAR.Gravity;
+    elseif strcmp(NUM.Adjoint.fields{par},'rad') == 1
+        m(par,1) = m(par,1)/CHAR.Length;
     end
 end
 
@@ -594,5 +709,10 @@ for par = 1:npar
         m(par,1) = m(par,1)*CHAR.Viscosity;
     elseif isfield(CHAR,NUM.Adjoint.fields{par}) == 1
         m(par,1) = m(par,1)*(CHAR.(NUM.Adjoint.fields{par}));
+        
+    elseif strcmp(NUM.Adjoint.fields{par},'g') == 1
+        m(par,1) = m(par,1)*CHAR.Gravity;
+    elseif strcmp(NUM.Adjoint.fields{par},'rad') == 1
+        m(par,1) = m(par,1)*CHAR.Length;
     end
 end

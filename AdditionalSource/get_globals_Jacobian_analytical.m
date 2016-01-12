@@ -1,4 +1,26 @@
 function [ NUM,MESH ] = get_globals_Jacobian_analytical( NUM,PAR,MESH ,CHAR)
+%% -------- %% Analytical jacobian matrix assembly function %% -------- %%
+% Assembles the analtycal Jacobian matrix. The assembling itself is done
+% exactly the same way as for the Picard matrix but the computation
+% differs:
+% 
+%                   ----------------
+%                   |dVV/dV  dVP/dP|
+% Jacobian matrix = |dPV/dV  dPP/dP|
+%                   ----------------
+% 
+% 1) Plastic case
+% dVV/dV  = B'*(P*(2*mu*(I-(1/2)*((strain_tensor/str_invariant)*(strain_tensor/str_invariant)'))) * P')*B*weight*detJ
+% dVP/dP  = B'*(P*(strain_tensor/str_invariant)*phi-m)*N_p*weight*detJ
+% dPV/dV  = VP
+% dPP/dP  = 0
+% 
+% 2) Elastic case
+% dVV/dV  = B'*(P*(2*mu*(I+(1/2)*(1/powerlaw-1)*((strain_tensor/str_invariant)*(strain_tensor/str_invariant)')))*P')*B*weight*detJ
+% dVP/dP  = VP
+% dPV/dV  = VP
+% dPP/dP  = 0
+%%---------------------------------------------------------------------%%
 
 %% initilize globals
 vec = zeros((NUM.NUMERICS.no_nodes_ele*(NUM.NUMERICS.ndof-1)+NUM.NUMERICS.no_nodes_ele_linear)^2,NUM.NUMERICS.no_elems_global);
@@ -44,13 +66,13 @@ for i = 1:NUM.NUMERICS.no_elems_global
         B(3,1:2:end) = dNdX(2,:);
         B(3,2:2:end) = dNdX(1,:);
         
-        [ NUM,MESH] = ComputeViscosity(i,NUM,j,MESH,CHAR,PAR,B);
-        
-        if NUM.Plasticity.Plasticity
+        [ NUM,MESH] = Compute_Viscosity(i,NUM,j,MESH,CHAR,PAR,B);
+       
+        if NUM.Plasticity.Plasticity && NUM.Plasticity.Plastic(j,i) == 1 
             sin_phi     = sin(deg2rad(MESH.CompVar.Phi(NUM.Number.number_quad(j,i))));
         end
         
-        strain_tensor = [NUM.Strain.Exx(j,i);NUM.Strain.Ezz(j,i);NUM.Strain.Exz(j,i)];
+        strain_tensor = [NUM.Strain.Exx(j,i);NUM.Strain.Ezz(j,i);2*NUM.Strain.Exz(j,i)];
         strain_tensor = P' * strain_tensor;
 
         if NUM.Plasticity.Plasticity && NUM.Plasticity.Plastic(j,i) == 1 
