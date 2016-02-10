@@ -99,7 +99,7 @@ while k<7
         [NUM.Adjoint.m] = nondimensionalize(NUM,NUM.Adjoint.m,npar,CHAR);
         for par = 1:length(NUM.Adjoint.fields)   % loop over design variables
             % Compute residual by forward finite differences
-            [ drdx_temp ] = AdjointRes( NUM,PAR,MESH,par,CHAR);
+            [ drdx_temp ] = Adjoint_Res( NUM,PAR,MESH,par,CHAR);
             drdx(:,par) = drdx_temp;
         end
         [NUM.Adjoint.m] = denondimensionalize(NUM,NUM.Adjoint.m,npar,CHAR);

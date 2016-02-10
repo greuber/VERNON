@@ -1,4 +1,4 @@
-function [ NUM,MESH] = ComputeStress_residual(i,NUM,j,MESH,CHAR,PAR,B,p,u)
+function [ NUM,MESH] = Compute_Stress_residual(i,NUM,j,MESH,CHAR,PAR,B,p,u)
 %% --------------- %% Viscosity update function %% --------------- %%
 % Computes the (elasto-plastic) viscosity and stresses on the basis of the 
 % current solution.

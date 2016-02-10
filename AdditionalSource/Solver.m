@@ -480,11 +480,17 @@ while NUM.Solve.number_pic<=max_iter
                         % mu_temp = mean(MESH.CompVar.mu_ref(unique((NUM.Adjoint.index{2}))));
                         % save(['Adjoint_vectorized_4_',num2str(NUM.Adjoint.it_adj),'Rising_Sphere'],'power_sur_temp','mu_temp','rho_sur_temp','power_block_temp')
                         
+                        
+                        [NUM.Adjoint.m] = denormalize(NUM,NUM.Adjoint.m,npar);
+                        
                         display('------------------------------------------------------ ')
                         display(['NORM OF THE GRADIENT = ',num2str(norm(grad))])
                         display(['COST FUNCTION        = ',num2str(fcost)])
                         display(['BETA STEP            = ',num2str(beta_step')])
+                        display(['mu_over1 = ',num2str(NUM.Adjoint.m(1)),'mu_over2 = ',num2str(NUM.Adjoint.m(2))])
                         display('------------------------------------------------------ ')
+                        
+                        [NUM.Adjoint.m] = normalize(NUM,NUM.Adjoint.m,npar);
                         
                         % update old variables
                         NUM.Adjoint.it_adj = NUM.Adjoint.it_adj + 1;
