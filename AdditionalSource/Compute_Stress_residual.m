@@ -68,7 +68,7 @@ NUM.Stress.tau_local =  [NUM.Stress.Txx_old(j,i), NUM.Stress.Tzz_old(j,i) ,NUM.S
 NUM.Strain.str_local   = B*u;
 NUM.Strain.str_local(3,1) = NUM.Strain.str_local(3,1)/2;
 NUM.Strain.str_total = NUM.Strain.str_local;
-NUM.Strain.str_local = NUM.Strain.str_local + (NUM.Stress.tau_local/(2*MESH.CompVar.G(NUM.Number.number_quad(j,i))*PAR.dt));
+NUM.Strain.str_local = NUM.Strain.str_local;%  + (NUM.Stress.tau_local/(2*MESH.CompVar.G(NUM.Number.number_quad(j,i))*PAR.dt));
 
 NUM.Strain.str_invariant = sqrt((1/2)*(NUM.Strain.str_local(1,1)^2 + NUM.Strain.str_local(2,1)^2) + NUM.Strain.str_local(3,1)^2);
 NUM.Strain.str_total_inv = sqrt((1/2)*(NUM.Strain.str_total(1,1)^2 + NUM.Strain.str_total(2,1)^2) + NUM.Strain.str_total(3,1)^2);
@@ -83,13 +83,14 @@ NUM.Strain.Exz(j,i) = NUM.Strain.str_local(3);
 
 %% Nonlinear + elastic part of viscosity
 
-NUM.Viscosity.mu = MESH.CompVar.mu_ref(NUM.Number.number_quad(j,i))*(NUM.Strain.str_invariant./MESH.CompVar.str_ref(NUM.Number.number_quad(j,i))).^(1./MESH.CompVar.powerlaw(NUM.Number.number_quad(j,i))-1);
-NUM.Viscosity.mu = 1./(1./NUM.Viscosity.mu + 1./(MESH.CompVar.G(NUM.Number.number_quad(j,i))*PAR.dt)); 
+% % For the full visco-elastic case uncomment this
+% NUM.Viscosity.mu = MESH.CompVar.mu_ref(NUM.Number.number_quad(j,i))*(NUM.Strain.str_invariant./MESH.CompVar.str_ref(NUM.Number.number_quad(j,i))).^(1./MESH.CompVar.powerlaw(NUM.Number.number_quad(j,i))-1);
+% NUM.Viscosity.mu = 1./(1./NUM.Viscosity.mu + 1./(MESH.CompVar.G(NUM.Number.number_quad(j,i))*PAR.dt)); 
 
 % % For the viscous case uncomment this
-% NUM.Viscosity.mu = MESH.CompVar.mu_ref(NUM.Number.number_quad(j,i));
+NUM.Viscosity.mu = MESH.CompVar.mu_ref(NUM.Number.number_quad(j,i));
 
-% % For the visco-elastic case uncomment this
+% % For the elastic case uncomment this
 % NUM.Viscosity.mu = MESH.CompVar.G(NUM.Number.number_quad(j,i)) *PAR.dt;          
 
 mu_vis = NUM.Viscosity.mu;

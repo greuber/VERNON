@@ -61,7 +61,7 @@ switch PAR.Perturb
             %     k_topo          = k_topo + 0.2*[rand(size(k_topo))-0.5];
             z_topo          = [sin(k_topo)];
             z_topo          = factor(1,k).*z_topo;
-            MESH.GCOORD(2,j:i)   = MESH.GCOORD(2,j:i) + [z_topo+1e-6];
+            MESH.GCOORD(2,j:i)   = MESH.GCOORD(2,j:i) + [z_topo];
             j               = j-NUM.NUMERICS.no_nodes_x;
             k               = k+1;
             
@@ -78,22 +78,38 @@ switch PAR.Perturb
         
         
     case 'middleinterface'
+        % to have more than one interface: PAR.H_interface = [hi:NUM.NUMERICS.dz:hi2];
         % make sinus only at a specified interface in PAR.H_interface
-        bound = NUM.NUMERICS.dz - NUM.NUMERICS.dz/10;
-        st              = PAR.A0/sin(pi/2);
-        k_topo          = linspace((0),(pi),NUM.NUMERICS.no_nodes_x);
-        z_topo          = [sin(k_topo)];
-        z_topo          = st.*z_topo;
-        ind = find(MESH.GCOORD(2,:)<PAR.H_interface+bound & MESH.GCOORD(2,:)>PAR.H_interface-bound);
-        MESH.GCOORD(2,ind)   = MESH.GCOORD(2,ind) + [z_topo];
+        for i = 1:length(PAR.H_interface)
+            bound = NUM.NUMERICS.dz - 3*NUM.NUMERICS.dz/4;
+            st              = PAR.A0/sin(pi/2);
+            k_topo          = linspace((0),(pi/2),NUM.NUMERICS.no_nodes_x);
+            z_topo          = [sin(k_topo)];
+            z_topo          = st.*z_topo;
+            ind = find(MESH.GCOORD(2,:)<PAR.H_interface(i)+bound & MESH.GCOORD(2,:)>PAR.H_interface(i)-bound);
+            if length(ind) ~= length(z_topo)
+                while length(ind) > length(z_topo)
+                    bound = bound/2;
+                    ind = find(MESH.GCOORD(2,:)<PAR.H_interface(i)+bound & MESH.GCOORD(2,:)>PAR.H_interface(i)-bound);
+                end
+                while length(ind) < length(z_topo)
+                    bound = bound*2;
+                    ind = find(MESH.GCOORD(2,:)<PAR.H_interface(i)+bound & MESH.GCOORD(2,:)>PAR.H_interface(i)-bound);
+                end
+            end
+            MESH.GCOORD(2,ind)   = MESH.GCOORD(2,ind) + [z_topo];
+        end
         
         
     case 'random'
         % make random disribution for the interface parameter
         % PAR.H_interface
+        if ~isfield(PAR,'H_interface')
+            PAR.H_interface = PAR.H/2;
+        end
         bound = NUM.NUMERICS.dz - NUM.NUMERICS.dz/2;
         ind = find(MESH.GCOORD(2,:)<PAR.H_interface+bound & MESH.GCOORD(2,:)>PAR.H_interface-bound);
-        MESH.GCOORD(2,ind) = MESH.GCOORD(2,ind) + bound*[rand(size(MESH.GCOORD(2,ind)))];
+        MESH.GCOORD(2,ind) = MESH.GCOORD(2,ind) + bound*[rand(size(MESH.GCOORD(2,ind)))]/5;
         
     case 'none'
 end

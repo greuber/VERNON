@@ -60,5 +60,18 @@ switch boundary
         NUM.Boundary.bcdof = NUM.Boundary.bcdof(:);
         NUM.Boundary.bcval = NUM.Boundary.bcval(:);
         
+    case 'FoldingBenchmark'
+        % Constant pushing in x direction from the right, free slip
+        % elsewhere, free surface and no slip at the bottom
+        if isfield(NUM,'ebg')
+            ux = NUM.ebg;
+        elseif isfield(NUM,'vbg')
+            ux = NUM.vbg;
+        end
+        NUM.Boundary.bcdof = [ NUM.Number.number_2d_ele_dof(:,1,1)', NUM.Number.number_2d_ele_dof(:,end,1)', NUM.Number.number_2d_ele_dof(end,:,2), NUM.Number.number_2d_ele_dof(end,:,1) ];
+        NUM.Boundary.bcval = [zeros(size(NUM.Number.number_2d_ele_dof(:,1,1)')), ones(size(NUM.Number.number_2d_ele_dof(:,end,1)'))*(ux), zeros(size(NUM.Number.number_2d_ele_dof(end,:,2))), zeros(size(NUM.Number.number_2d_ele_dof(end,:,1))) ];
+        NUM.Boundary.bcdof = NUM.Boundary.bcdof(:);
+        NUM.Boundary.bcval = NUM.Boundary.bcval(:);
+        
 end
 

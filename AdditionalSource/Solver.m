@@ -11,7 +11,7 @@ function [ NUM,MESH] = Solver(NUM,PAR,MESH,CHAR )
 %%-------------------------------------------------------%%
 
 NUM.Solve.number_pic = 1;
-max_iter             = 100;
+max_iter             = 2;
 N_f_res_old          = realmax;
 LS                   = 1;
 no_picard            = 1;
@@ -174,14 +174,20 @@ while NUM.Solve.number_pic<=max_iter
                             [ NUM,MESH ] = Adjoint_StokesSolution( MESH,PAR,NUM,CHAR );
                             
                             % [NUM.Adjoint.m] = denondimensionalize(NUM,NUM.Adjoint.m,npar,CHAR);
-                            [NUM.Adjoint.m] = normalize(NUM,NUM.Adjoint.m,npar);
+                            % [NUM.Adjoint.m] = normalize(NUM,NUM.Adjoint.m,npar);
                             
-                            % Compute cost function and derivative
-                            fcost = (1/2) * (NUM.Solve.r(NUM.Adjoint.ind_cost) - NUM.Solve.r_ini(NUM.Adjoint.ind_cost))' * (NUM.Solve.r(NUM.Adjoint.ind_cost) - NUM.Solve.r_ini(NUM.Adjoint.ind_cost));
+%                             % Compute cost function and derivative  %
+%                             fcost = (1/2) * ((NUM.Solve.r(NUM.Adjoint.ind_cost)) - NUM.Solve.r_ini(NUM.Adjoint.ind_cost))' * ((NUM.Solve.r(NUM.Adjoint.ind_cost)) - NUM.Solve.r_ini(NUM.Adjoint.ind_cost));
+%                             dcost_du = zeros(size(NUM.Solve.r'));
+%                             dcost_du(NUM.Adjoint.ind_cost) = ((NUM.Solve.r(NUM.Adjoint.ind_cost))' - NUM.Solve.r_ini(NUM.Adjoint.ind_cost)');
+                            
+                            % Compute cost function and derivative  %
+                            % ATTENTION THIS IS CHANGED
+                            fcost = NUM.Solve.r(NUM.Adjoint.ind_cost);
                             dcost_du = zeros(size(NUM.Solve.r'));
-                            dcost_du(NUM.Adjoint.ind_cost) = (NUM.Solve.r(NUM.Adjoint.ind_cost)' - NUM.Solve.r_ini(NUM.Adjoint.ind_cost)');
+                            dcost_du(NUM.Adjoint.ind_cost) = 1;
                             
-                            [NUM.Adjoint.m] = denormalize(NUM,NUM.Adjoint.m,npar);
+                            % [NUM.Adjoint.m] = denormalize(NUM,NUM.Adjoint.m,npar);
                             [NUM.Adjoint.m] = nondimensionalize(NUM,NUM.Adjoint.m,npar,CHAR);
                             for par = 1:length(NUM.Adjoint.fields)   % loop over design variables
                                 % Compute residual by forward finite differences
@@ -189,22 +195,22 @@ while NUM.Solve.number_pic<=max_iter
                                 drdx(:,par) = drdx_temp;
                             end
                             [NUM.Adjoint.m] = denondimensionalize(NUM,NUM.Adjoint.m,npar,CHAR);
-                            [NUM.Adjoint.m] = normalize(NUM,NUM.Adjoint.m,npar);
+                            % [NUM.Adjoint.m] = normalize(NUM,NUM.Adjoint.m,npar);
                             
                             % compute gradient using adjoint method
                             psi = (NUM.Solve.J')\(dcost_du');
                             grad = - psi'*drdx;
-                            [grad] = nondimensionalize(NUM,grad',npar,CHAR);
-                            grad = grad';
-                            [grad] = normalize(NUM,grad',npar);
-                            grad = grad';
+                            % [grad] = nondimensionalize(NUM,grad',npar,CHAR);
+                            % grad = grad';
+                            % [grad] = normalize(NUM,grad',npar);
+                            % grad = grad';
                             
                             % In the first iteration the Hessian is the
                             % identity matrix
-                            H = eye(length(NUM.Adjoint.fields),length(NUM.Adjoint.fields));     % ATTENTION: THIS CAN BE NORMALIZED BY H*(1/norm(grad))
+                            NUM.Adjoint.H = eye(length(NUM.Adjoint.fields),length(NUM.Adjoint.fields));     % ATTENTION: THIS CAN BE NORMALIZED BY NUM.Adjoint.H*(1/norm(grad))
                             
                             % setup the tolerance
-                            NUM.Adjoint.adjoint_tol = norm(grad)*1e-3;   % to end when the error is 3 orders smaller than the in iitla one
+                            NUM.Adjoint.adjoint_tol = norm(grad)*1e-9;   % to end when the error is 9 orders smaller than the in iitla one
                             
                             % save step-size
                             beta_step = (1./abs(grad)')./NUM.Adjoint.LS_Parameter;
@@ -212,7 +218,7 @@ while NUM.Solve.number_pic<=max_iter
                             beta_step_star = zeros(size(beta_step));
                             
                             % Compute first search-direction
-                            dx = -H*grad';
+                            dx = -NUM.Adjoint.H*grad';
                             
                         else      % every iteration starting from the second
                             % Update variables for the line search (needs
@@ -245,7 +251,7 @@ while NUM.Solve.number_pic<=max_iter
                                 % with the former beta_step
                                 NUM.Adjoint.m = sol_ini + beta_step.*dx;
                                 
-                                [NUM.Adjoint.m] = denormalize(NUM,NUM.Adjoint.m,npar);
+                                % [NUM.Adjoint.m] = denormalize(NUM,NUM.Adjoint.m,npar);
                                 [NUM.Adjoint.m] = nondimensionalize(NUM,NUM.Adjoint.m,npar,CHAR);
                                 for par = 1:length(NUM.Adjoint.fields)
                                     if isfield(MESH.CompVar,NUM.Adjoint.fields{par}) == 1
@@ -274,7 +280,7 @@ while NUM.Solve.number_pic<=max_iter
                                     end
                                 end
                                 [NUM.Adjoint.m] = denondimensionalize(NUM,NUM.Adjoint.m,npar,CHAR);
-                                [NUM.Adjoint.m] = normalize(NUM,NUM.Adjoint.m,npar);
+                                % [NUM.Adjoint.m] = normalize(NUM,NUM.Adjoint.m,npar);
                                 
                                 [ NUM,MESH ] = Adjoint_StokesSolution( MESH,PAR,NUM,CHAR );
                                 fcost = (1/2) * (NUM.Solve.r(NUM.Adjoint.ind_cost) - NUM.Solve.r_ini(NUM.Adjoint.ind_cost))' * (NUM.Solve.r(NUM.Adjoint.ind_cost) - NUM.Solve.r_ini(NUM.Adjoint.ind_cost));
@@ -292,7 +298,7 @@ while NUM.Solve.number_pic<=max_iter
                                 dcost_du = zeros(size(NUM.Solve.r'));
                                 dcost_du(NUM.Adjoint.ind_cost) = (NUM.Solve.r(NUM.Adjoint.ind_cost)' - NUM.Solve.r_ini(NUM.Adjoint.ind_cost)');
                                 
-                                [NUM.Adjoint.m] = denormalize(NUM,NUM.Adjoint.m,npar);
+                                % [NUM.Adjoint.m] = denormalize(NUM,NUM.Adjoint.m,npar);
                                 [NUM.Adjoint.m] = nondimensionalize(NUM,NUM.Adjoint.m,npar,CHAR);
                                 for par = 1:length(NUM.Adjoint.fields)   % loop over design variables
                                     % Compute residual by forward finite differences
@@ -300,15 +306,15 @@ while NUM.Solve.number_pic<=max_iter
                                     drdx(:,par) = drdx_temp;
                                 end
                                 [NUM.Adjoint.m] = denondimensionalize(NUM,NUM.Adjoint.m,npar,CHAR);
-                                [NUM.Adjoint.m] = normalize(NUM,NUM.Adjoint.m,npar);
+                                % [NUM.Adjoint.m] = normalize(NUM,NUM.Adjoint.m,npar);
                                 
                                 % Compute gradient using adjoint method
                                 psi = (NUM.Solve.J')\(dcost_du');
                                 grad = - psi'*drdx;
-                                [grad] = nondimensionalize(NUM,grad',npar,CHAR);
-                                grad = grad';
-                                [grad] = normalize(NUM,grad',npar);
-                                grad = grad';
+                                % [grad] = nondimensionalize(NUM,grad',npar,CHAR);
+                                % grad = grad';
+                                % [grad] = normalize(NUM,grad',npar);
+                                % grad = grad';
                                 
                                 % Second condition ('curvature condition')
                                 if abs(grad) <= -0.9*grad_ini           % MAYBE COULD BE any(abs(grad) <= abs(-0.9*grad_ini))
@@ -343,7 +349,7 @@ while NUM.Solve.number_pic<=max_iter
                                 fcost_old = fcost;
                                 ij = ij +1
                                 
-                                beta_step
+                                % beta_step
                                 
                             end
                             beta_step = beta_step_star;                % update beta_step
@@ -357,7 +363,7 @@ while NUM.Solve.number_pic<=max_iter
                                 dcost_du = zeros(size(NUM.Solve.r'));
                                 dcost_du(NUM.Adjoint.ind_cost) = (NUM.Solve.r(NUM.Adjoint.ind_cost)' - NUM.Solve.r_ini(NUM.Adjoint.ind_cost)');
                                 
-                                [NUM.Adjoint.m] = denormalize(NUM,NUM.Adjoint.m,npar);
+                                % [NUM.Adjoint.m] = denormalize(NUM,NUM.Adjoint.m,npar);
                                 [NUM.Adjoint.m] = nondimensionalize(NUM,NUM.Adjoint.m,npar,CHAR);
                                 for par = 1:length(NUM.Adjoint.fields)   % loop over design variables
                                     % Compute residual by forward finite differences
@@ -365,20 +371,20 @@ while NUM.Solve.number_pic<=max_iter
                                     drdx(:,par) = drdx_temp;
                                 end
                                 [NUM.Adjoint.m] = denondimensionalize(NUM,NUM.Adjoint.m,npar,CHAR);
-                                [NUM.Adjoint.m] = normalize(NUM,NUM.Adjoint.m,npar);
+                                % [NUM.Adjoint.m] = normalize(NUM,NUM.Adjoint.m,npar);
                                 
                                 % Compute gradient using adjoint method
                                 psi = (NUM.Solve.J')\(dcost_du');
                                 grad = - psi'*drdx;
-                                [grad] = nondimensionalize(NUM,grad',npar,CHAR);
-                                grad = grad';
-                                [grad] = normalize(NUM,grad',npar);
-                                grad = grad';
+                                % [grad] = nondimensionalize(NUM,grad',npar,CHAR);
+                                % grad = grad';
+                                % [grad] = normalize(NUM,grad',npar);
+                                % grad = grad';
                             end
                             
                             
                             NUM.Adjoint.m = sol_ini + beta_step.*dx;
-                            [NUM.Adjoint.m] = denormalize(NUM,NUM.Adjoint.m,npar);
+                            % [NUM.Adjoint.m] = denormalize(NUM,NUM.Adjoint.m,npar);
                             [NUM.Adjoint.m] = nondimensionalize(NUM,NUM.Adjoint.m,npar,CHAR);
                             for par = 1:length(NUM.Adjoint.fields)
                                 if isfield(MESH.CompVar,NUM.Adjoint.fields{par}) == 1
@@ -400,6 +406,29 @@ while NUM.Solve.number_pic<=max_iter
                                     MESH.CompVar.Phase(ind)       = 2;
                                     MESH.CompVar.G(ind)           = PAR.G/CHAR.Stress;
                                     
+%                                 elseif strcmp(NUM.Adjoint.fields{par},'Hi') == 1
+%                                     
+%                                     PAR.H_interface = NUM.Adjoint.m(par,1);
+%                                     
+%                                     [ NUM,MESH ] = Create_MESH( NUM,PAR,0,MESH );
+%                                     
+%                                     MESH.CompVar.rho         = ones(size(MESH.GCOORD(2,:)))*0;
+%                                     MESH.CompVar.mu_ref      = ones(size(MESH.GCOORD(2,:)))*PAR.mu1;
+%                                     MESH.CompVar.str_ref     = ones(size(MESH.GCOORD(2,:)))*abs(NUM.ebg);
+%                                     MESH.CompVar.powerlaw    = ones(size(MESH.GCOORD(2,:)))*PAR.n;
+%                                     MESH.CompVar.Phase       = ones(size(MESH.GCOORD(2,:)))*1;
+%                                     MESH.CompVar.G           = ones(size(MESH.GCOORD(2,:)))*PAR.G;
+%                                     
+%                                     hi = NUM.Adjoint.m(par,1);
+%                                     % Overburden
+%                                     ind                 = find(MESH.GCOORD(2,:)<=1 & MESH.GCOORD(2,:)>hi+PAR.A0 & MESH.GCOORD(1,:)>=0 & MESH.GCOORD(1,:)<=PAR.W);
+%                                     MESH.CompVar.rho(ind)        = PAR.rho;
+%                                     MESH.CompVar.mu_ref(ind)     = PAR.mu2;
+%                                     MESH.CompVar.str_ref(ind)    = abs(NUM.ebg);
+%                                     MESH.CompVar.powerlaw(ind)   = PAR.n;
+%                                     MESH.CompVar.Phase(ind)      = 2;
+%                                     MESH.CompVar.G(ind)          = PAR.G;
+                                    
                                 elseif isfield(PAR,NUM.Adjoint.fields{par}) == 1
                                     PAR.(NUM.Adjoint.fields{par})(NUM.Adjoint.index{par}) = NUM.Adjoint.m(par,1);
                                 else
@@ -407,36 +436,36 @@ while NUM.Solve.number_pic<=max_iter
                                 end
                             end
                             [NUM.Adjoint.m] = denondimensionalize(NUM,NUM.Adjoint.m,npar,CHAR);
-                            [NUM.Adjoint.m] = normalize(NUM,NUM.Adjoint.m,npar);
+                            % [NUM.Adjoint.m] = normalize(NUM,NUM.Adjoint.m,npar);
                             
                             % Compute parameters for BFGS
                             dp = NUM.Adjoint.m - sol_ini;
                             vp = grad - grad_ini;
                             
-                            H = eye(length(NUM.Adjoint.fields),length(NUM.Adjoint.fields));
+                            NUM.Adjoint.H = eye(length(NUM.Adjoint.fields),length(NUM.Adjoint.fields));
                             
-                            r = (dp./(dp.*vp')) - ((H*vp')/(vp*H*vp'));
+                            r = (dp./(dp.*vp')) - ((NUM.Adjoint.H*vp')/(vp*NUM.Adjoint.H*vp'));
                             
                             % Approximate inverse Hessian with BFGS
                             % algorithm
-                            H = H - ((H*vp'*(H*vp')')/(vp*H*vp')) + ((dp*dp')/(dp'*vp')) + (vp*H*vp'*(r*r'));   % = H^-1
+                            NUM.Adjoint.H = NUM.Adjoint.H - ((NUM.Adjoint.H*vp'*(NUM.Adjoint.H*vp')')/(vp*NUM.Adjoint.H*vp')) + ((dp*dp')/(dp'*vp')) + (vp*NUM.Adjoint.H*vp'*(r*r'));   % = NUM.Adjoint.H^-1
                             
-                            H(isnan(H)) = 0;
-                            H(isinf(H)) = 0;
+                            NUM.Adjoint.H(isnan(NUM.Adjoint.H)) = 0;
+                            NUM.Adjoint.H(isinf(NUM.Adjoint.H)) = 0;
                             
-                            inv(H)   % print the correct Hessian (as BFGS gives the inverse Hessian)
+                            inv(NUM.Adjoint.H)   % print the correct Hessian (as BFGS gives the inverse Hessian)
                             
                             
-                            % check for positive definiteness of H
-                            [~,p] = chol(H);
+                            % check for positive definiteness of NUM.Adjoint.H
+                            [~,p] = chol(NUM.Adjoint.H);
                             if p>0
                                 warning('Hessian no longer positive definite')
                             end
                             
                             % Compute new search-direction
-                            dx = -H*grad';
+                            dx = -NUM.Adjoint.H*grad';
                             
-                            dx    % print the search direction vector
+                            % dx    % print the search direction vector
                             
                         end
                         
@@ -452,21 +481,21 @@ while NUM.Solve.number_pic<=max_iter
                         Z_ele = MESH.GCOORD(2,:);
                         Z_ele = Z_ele(NUM.Number.number_2d_linear);
                         
-                        figure(1),clf
-                        for par = 1:length(NUM.Adjoint.fields)
-                            if isfield(MESH.CompVar,(NUM.Adjoint.fields{par})) == 1
-                                design1_2d = MESH.CompVar.(NUM.Adjoint.fields{par})(NUM.Number.number_2d);
-                                subplot(length(NUM.Adjoint.fields),1,par)
-                                pcolor(X,Z,design1_2d)
-                            elseif isfield(PAR,(NUM.Adjoint.fields{par})) == 1
-                                design1 = PAR.(NUM.Adjoint.fields{par});
-                                subplot(length(NUM.Adjoint.fields),1,par)
-                                plot(design1,'ro','MarkerSize',5)
-                            end
-                            colorbar
-                            title(['design variable ',num2str(par),' after ',num2str(NUM.Adjoint.it_adj),' iteration; Norm cost function = ',num2str(norm(fcost))])
-                        end
-                        drawnow
+%                         figure(1),clf
+%                         for par = 1:length(NUM.Adjoint.fields)
+%                             if isfield(MESH.CompVar,(NUM.Adjoint.fields{par})) == 1
+%                                 design1_2d = MESH.CompVar.(NUM.Adjoint.fields{par})(NUM.Number.number_2d);
+%                                 subplot(length(NUM.Adjoint.fields),1,par)
+%                                 pcolor(X,Z,design1_2d)
+%                             elseif isfield(PAR,(NUM.Adjoint.fields{par})) == 1
+%                                 design1 = PAR.(NUM.Adjoint.fields{par});
+%                                 subplot(length(NUM.Adjoint.fields),1,par)
+%                                 plot(design1,'ro','MarkerSize',5)
+%                             end
+%                             colorbar
+%                             title(['design variable ',num2str(par),' after ',num2str(NUM.Adjoint.it_adj),' iteration; Norm cost function = ',num2str(norm(fcost))])
+%                         end
+%                         drawnow
                         
                         % fname = (['Iteration_jioint_3_',num2str(NUM.Adjoint.it_adj)]);
                         % print(fname,'-dpng','-zbuffer','-r300')
@@ -481,16 +510,24 @@ while NUM.Solve.number_pic<=max_iter
                         % save(['Adjoint_vectorized_4_',num2str(NUM.Adjoint.it_adj),'Rising_Sphere'],'power_sur_temp','mu_temp','rho_sur_temp','power_block_temp')
                         
                         
-                        [NUM.Adjoint.m] = denormalize(NUM,NUM.Adjoint.m,npar);
+                        % [NUM.Adjoint.m] = denormalize(NUM,NUM.Adjoint.m,npar);
+                        % [grad] = denormalize(NUM,grad',npar);
                         
                         display('------------------------------------------------------ ')
                         display(['NORM OF THE GRADIENT = ',num2str(norm(grad))])
                         display(['COST FUNCTION        = ',num2str(fcost)])
                         display(['BETA STEP            = ',num2str(beta_step')])
-                        display(['mu_over1 = ',num2str(NUM.Adjoint.m(1)),'mu_over2 = ',num2str(NUM.Adjoint.m(2))])
+                        display(['mu_2 = ',num2str(NUM.Adjoint.m(1))     ])
                         display('------------------------------------------------------ ')
                         
-                        [NUM.Adjoint.m] = normalize(NUM,NUM.Adjoint.m,npar);
+                        if NUM.Adjoint.OnlyGradients == 1
+                            NUM.Adjoint.grad       = grad;
+                            NUM.Adjoint.norm_grad  = norm(grad);
+                            NUM.Adjoint.fcost      = fcost;
+                            break
+                        end
+                        
+                        % [NUM.Adjoint.m] = normalize(NUM,NUM.Adjoint.m,npar);
                         
                         % update old variables
                         NUM.Adjoint.it_adj = NUM.Adjoint.it_adj + 1;
@@ -643,7 +680,11 @@ while NUM.Solve.number_pic<=max_iter
         res_ini = norm(NUM.Solve.f_res);
     end
     
-    if norm(NUM.Solve.f_res)/(res_ini) < PAR.tol + atol || NUM.Solve.number_pic >=max_iter
+    if norm(NUM.Solve.f_res)<1e-14
+        display(sprintf('Convergence due to machine precision; norm = %6.3e',norm(NUM.Solve.f_res)))
+        break
+    end
+    if norm(NUM.Solve.f_res)/(res_ini) < PAR.tol + atol || NUM.Solve.number_pic >=max_iter   % Stop if we reach the stopping criteria || maximum iteration count
         % Stresses and Strains are updated in 'Timestepping'
         break
     end
@@ -699,6 +740,8 @@ for par = 1:npar
         m(par,1) = m(par,1)/CHAR.Gravity;
     elseif strcmp(NUM.Adjoint.fields{par},'rad') == 1
         m(par,1) = m(par,1)/CHAR.Length;
+    elseif strcmp(NUM.Adjoint.fields{par},'Hi') == 1
+        m(par,1) = m(par,1)/CHAR.Length;
     end
 end
 
@@ -717,6 +760,8 @@ for par = 1:npar
     elseif strcmp(NUM.Adjoint.fields{par},'g') == 1
         m(par,1) = m(par,1)*CHAR.Gravity;
     elseif strcmp(NUM.Adjoint.fields{par},'rad') == 1
+        m(par,1) = m(par,1)*CHAR.Length;
+    elseif strcmp(NUM.Adjoint.fields{par},'Hi') == 1
         m(par,1) = m(par,1)*CHAR.Length;
     end
 end

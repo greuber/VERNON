@@ -7,8 +7,12 @@ h = max([(1e-6*abs(NUM.Adjoint.m(par,1))), h_max]);
 index = NUM.Adjoint.index{par};
 field = NUM.Adjoint.fields{par};    % the perturbed field in the MESH.CompVar structure
 
-if strcmp(field,'mu_ref') == 1
-    h = 1e3;
+% if strcmp(field,'mu_ref') == 1
+%     h = 1e-1*abs(NUM.Adjoint.m(par,1));
+% end
+if strcmp(field,'Hi') == 1
+    h = 0.01;
+    MESH_ini = MESH;
 end
 
 if isfield(MESH.CompVar,field)
@@ -34,7 +38,7 @@ for id1 = 1:2
             MESH.CompVar.powerlaw    = ones(1,NUM.NUMERICS.no_nodes) * PAR.n1;
             MESH.CompVar.Phase       = ones(1,NUM.NUMERICS.no_nodes);
             MESH.CompVar.G           = ones(size(MESH.GCOORD(2,:)))*PAR.G/CHAR.Stress;
-            rad = input + NUM.NUMERICS.dx + h;    % in this case we add the minimum dx   
+            rad = input + NUM.NUMERICS.dx + h;    % in this case we add the minimum dx
             ind = find((MESH.GCOORD(1,:) - (PAR.W/2)).^2 + (MESH.GCOORD(2,:) - (PAR.H/2)).^2 < rad^2);
             MESH.CompVar.rho(ind)         = NUM.Adjoint.m(3,1);
             MESH.CompVar.mu_ref(ind)      = PAR.mu_2/CHAR.Viscosity;
@@ -42,6 +46,32 @@ for id1 = 1:2
             MESH.CompVar.powerlaw(ind)    = PAR.n1;
             MESH.CompVar.Phase(ind)       = 2;
             MESH.CompVar.G(ind)           = PAR.G/CHAR.Stress;
+            
+        elseif strcmp(field,'Hi') == 1
+            
+            ind_interface = round(PAR.H_interface/NUM.NUMERICS.dz)+1;
+            
+            PAR.H_interface = input + h;
+            
+            [n,m] = size(NUM.Number.number_2d);
+            a = linspace(0,1,ind_interface);
+            ab = linspace(0,1,floor(n-ind_interface));
+            b = linspace(ab(end-1),0,floor(n-ind_interface));
+            factor = [a b];
+            ki = 1;
+            kj = m;
+            
+            for ku = 1:n;
+                MESH.GCOORD(2,ki:kj)   = MESH.GCOORD(2,ki:kj) + factor(ku)*h;
+                ki = kj+1;
+                kj = ku*m;
+            end
+            
+            [ NUM,MESH ] = Adjoint_StokesSolution( MESH,PAR,NUM,CHAR );
+            
+%         elseif strcmp(field,'mu_ref') == 1
+%             MESH.CompVar.(field)(unique(index)) = input(unique(index))+h;
+%             [ NUM,MESH ] = Adjoint_StokesSolution( MESH,PAR,NUM,CHAR );
             
         elseif isfield(PAR,NUM.Adjoint.fields{par}) == 1
             PAR.(NUM.Adjoint.fields{par})(NUM.Adjoint.index{par}) = input(unique(index))+h;
@@ -68,7 +98,19 @@ for id1 = 1:2
             MESH.CompVar.Phase(ind)       = 2;
             MESH.CompVar.G(ind)           = PAR.G/CHAR.Stress;
             
-            elseif isfield(PAR,NUM.Adjoint.fields{par}) == 1
+        elseif strcmp(field,'Hi') == 1
+            
+            PAR.H_interface = input_ini;
+            
+            MESH = MESH_ini;
+            
+            [ NUM,MESH ] = Adjoint_StokesSolution( MESH,PAR,NUM,CHAR );
+            
+%         elseif strcmp(field,'mu_ref') == 1
+%             MESH.CompVar.(field)(unique(index)) = input_ini(unique(index));
+%             [ NUM,MESH ] = Adjoint_StokesSolution( MESH,PAR,NUM,CHAR );
+            
+        elseif isfield(PAR,NUM.Adjoint.fields{par}) == 1
             PAR.(NUM.Adjoint.fields{par})(NUM.Adjoint.index{par}) = input_ini(unique(index));
         else
             display('Design variable seems to not be defined for the residual function update')

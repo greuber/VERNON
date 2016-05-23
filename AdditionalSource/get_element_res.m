@@ -7,6 +7,10 @@ function [ NUM,f_quad_val,f_line_val,MESH ] = get_element_res( p,u,PAR ,MESH,NUM
 fac        = 0;
 x          = MESH.Old(:,NUM.Number.number_quad(:,i)) +  u(NUM.Number.number_dof(:,1:NUM.NUMERICS.no_nodes_ele)) * PAR.dt *fac;    %%% CHANGED *0
 
+% if NUM.Adjoint.adjoint == 1
+%     x          = MESH.GCOORD(:,NUM.Number.number_quad(:,i)) +  u(NUM.Number.number_dof(:,1:NUM.NUMERICS.no_nodes_ele)) * PAR.dt *fac;    %%% CHANGED *0
+% end
+
 B = zeros(3,NUM.NUMERICS.no_nodes_ele*2);
 m = [1 1 0]';
 N_matrix = zeros(2,NUM.NUMERICS.no_nodes_ele*2);
